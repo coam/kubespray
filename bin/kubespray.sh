@@ -29,8 +29,15 @@ codes)
   caller git merge $(git describe --tags $(git rev-list --tags --max-count=1))
   # git checkout tags/v2.28.0
   ;;
+pip-mirrors)
+    # [PyPI 软件仓库](https://mirrors.tuna.tsinghua.edu.cn/help/pypi/)
+    caller python3 -m pip install -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple --upgrade pip
+    caller pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
+    caller pip config get global.index-url
+    ;;
 init)
-    caller apt install python3-pip
+    # caller apt install python3-pip
+    # caller pip3 install -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple -r requirements.txt
     caller pip3 install -r requirements.txt
   ;;
 reconfig)
@@ -46,6 +53,7 @@ reconfig)
 #  caller sed -i "s/^kube_proxy_mode: ipvs/kube_proxy_mode: iptables/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 #  caller sed -i "s/^# supplementary_addresses_in_ssl_keys:.*/supplementary_addresses_in_ssl_keys: [ 1.cos.iirii.com ]/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
   caller sed -i "s/^enable_nodelocaldns: true/enable_nodelocaldns: false/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
+  caller sed -i "s/^# kubectl_localhost: false/kubectl_localhost: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
     echo 'kube_apiserver_node_port_range: "30000-39999"' >> inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
@@ -57,6 +65,9 @@ reconfig)
   caller sed -i "s/^# argocd_admin_password: \"password\"/argocd_admin_password: \"password\"/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
   caller sed -i "s/^helm_enabled: false/helm_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
 #  caller sed -i "s/^krew_enabled: false/krew_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
+
+  caller sed -i "s/^# http_proxy:.*/http_proxy: \"http:\/\/zyfa:112233@0.wh.zsc.iirii.com:8810\"/g" inventory/mycluster/group_vars/all/all.yml
+  caller sed -i "s/^# https_proxy:.*/https_proxy: \"http:\/\/zyfa:112233@0.wh.zsc.iirii.com:8810\"/g" inventory/mycluster/group_vars/all/all.yml
   ;;
 configs)
     for server in root@15.zsc.iirii.com:22 root@16.zsc.iirii.com:22 root@17.zsc.iirii.com:22 root@18.zsc.iirii.com:22; do
@@ -71,10 +82,31 @@ EOF"
         caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port "cat /etc/hosts"
     done
 
-    caller ssh -o StrictHostKeyChecking=no root@15.zsc.iirii.com -p 22 "echo server-15 > /etc/hostname && cat /etc/hostname && hostname server-15 && hostname"
-    caller ssh -o StrictHostKeyChecking=no root@16.zsc.iirii.com -p 22 "echo server-16 > /etc/hostname && cat /etc/hostname && hostname server-16 && hostname"
-    caller ssh -o StrictHostKeyChecking=no root@17.zsc.iirii.com -p 22 "echo server-17 > /etc/hostname && cat /etc/hostname && hostname server-17 && hostname"
-    caller ssh -o StrictHostKeyChecking=no root@18.zsc.iirii.com -p 22 "echo server-18 > /etc/hostname && cat /etc/hostname && hostname server-18 && hostname"
+#    caller ssh -o StrictHostKeyChecking=no root@15.zsc.iirii.com -p 22 "echo server-15 > /etc/hostname && cat /etc/hostname && hostname server-15 && hostname"
+#    caller ssh -o StrictHostKeyChecking=no root@16.zsc.iirii.com -p 22 "echo server-16 > /etc/hostname && cat /etc/hostname && hostname server-16 && hostname"
+#    caller ssh -o StrictHostKeyChecking=no root@17.zsc.iirii.com -p 22 "echo server-17 > /etc/hostname && cat /etc/hostname && hostname server-17 && hostname"
+#    caller ssh -o StrictHostKeyChecking=no root@18.zsc.iirii.com -p 22 "echo server-18 > /etc/hostname && cat /etc/hostname && hostname server-18 && hostname"
+
+    for server in 15 16 17 18; do
+        caller ssh -o StrictHostKeyChecking=no root@$server.zsc.iirii.com -p 22 "echo server-$server > /etc/hostname && cat /etc/hostname && hostname server-$server && hostname"
+    done
+
+    for server in 15 16 17 18; do
+        caller ssh -T -o StrictHostKeyChecking=no root@$server.zsc.iirii.com -p 22 << 'EOF'
+#!/usr/bin/env bash
+set -e
+
+echo "check apt mirrors"
+[ ! -f /etc/apt/sources.list.bak ] && {
+    echo "setup apt mirrors"
+    cp /etc/apt/sources.list /etc/apt/sources.list.bak
+    sed -i 's/http:\/\/archive.ubuntu.com/http:\/\/mirrors.cloud.tencent.com/g' /etc/apt/sources.list
+    sed -i 's/http:\/\/security.ubuntu.com/http:\/\/mirrors.cloud.tencent.com/g' /etc/apt/sources.list
+}
+echo "check apt successful"
+EOF
+
+    done
   ;;
 *)
   echo "[参数命令不合法]case: $Case [test,cluster,k8s,kubesphere,other]"
