@@ -1,0 +1,73 @@
+# [在 Kubernetes 上部署 Drone 持续集成环境](https://hanggi.me/post/deployment/drone-ci-k8s/)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-devops-ns
+  labels:
+    app.kubernetes.io/name: coam-devops-ns
+    app.kubernetes.io/part-of: coam-devops-ns
+    istio-injection: enabled
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: drone-env
+  namespace: coam-devops-ns
+data:
+  DRONE_GITHUB_SERVER: https://github.com
+  DRONE_GITHUB_CLIENT_ID: '<github-client-id>'
+  DRONE_GITHUB_CLIENT_SECRET: '<github-client-secret>'
+  DRONE_SERVER_HOST: drone.ioros.com
+  DRONE_SERVER_PROTO: http
+  DRONE_RPC_SECRET: '<rpc-secret>'
+  DRONE_LOGS_TRACE: 'true'
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drone-server
+  namespace: coam-devops-ns
+spec:
+  selector:
+    matchLabels:
+      app: drone-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: drone-server
+    spec:
+      nodeName: t.cs.3
+      containers:
+        - image: drone/drone:1.7.0
+          imagePullPolicy: Always
+          name: drone-server
+          volumeMounts:
+            - name: drone-server-sqlite-db
+              mountPath: /var/lib/drone
+          envFrom:
+            - configMapRef:
+                name: drone-env
+      volumes:
+        - name: drone-server-sqlite-db
+          hostPath:
+            path: /rc/data/drone
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: drone-service
+  namespace: coam-devops-ns
+spec:
+  selector:
+    app: drone-server
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 80
+
+---

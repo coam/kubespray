@@ -1,0 +1,169 @@
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: elasticsearch-deployment
+  namespace: coam-dev-elk-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-elasticsearch
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-elasticsearch
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.2
+      #使用主机网络 - 暴露端口:500,4500- 不推荐 -- 不能开启,已使用 `hostPort` 暴露主机端口,否则开启端口监听将导致集群崩溃!!!
+      #hostNetwork: true
+      containers:
+        - name: us-elasticsearch
+          image: registry.ioros.com/coam/us.elk.elasticsearch:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32004"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: ["/opt/data/elk/elasticsearch/bin/elasticsearch"]
+          args: []
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            - containerPort: 9200
+              protocol: TCP
+            - containerPort: 9300
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /etc/ssl/coam
+              name: etc-ssl-coam-volume
+            - name: opt-data-elk-elasticsearch-data-volume
+              mountPath: /opt/data/elk/elasticsearch/data
+            - name: opt-data-elk-elasticsearch-logs-volume
+              mountPath: /opt/data/elk/elasticsearch/logs
+            #- name: opt-data-elk-elasticsearch-config-volume
+            #  mountPath: /opt/data/elk/elasticsearch/config
+            - name: elk-config-volume
+              mountPath: /opt/data/elk/elasticsearch/config/elasticsearch.yml
+              subPath: elasticsearch/config/elasticsearch.yml
+            #- name: data-home-coam-volume
+            #  mountPath: /data/home/coam
+      volumes:
+        - name: etc-ssl-coam-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ssl/coam
+            # this field is optional
+            type: Directory
+        - name: data-home-coam-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam
+            # this field is optional
+            type: Directory
+        - name: opt-data-elk-elasticsearch-config-volume
+          hostPath:
+            # directory location on host
+            path: /opt/data/elk/elasticsearch/config
+            # this field is optional
+            type: Directory
+        - name: opt-data-elk-elasticsearch-data-volume
+          hostPath:
+            # directory location on host
+            path: /opt/data/elk/elasticsearch/data
+            # this field is optional
+            type: DirectoryOrCreate
+        - name: opt-data-elk-elasticsearch-logs-volume
+          hostPath:
+            # directory location on host
+            path: /opt/data/elk/elasticsearch/logs
+            # this field is optional
+            type: DirectoryOrCreate
+        - name: elk-config-volume
+          configMap:
+            name: elk-config
+            items:
+              - key: opt_data_elk_elasticsearch_config_elasticsearch.yml
+                path: elasticsearch/config/elasticsearch.yml
+              - key: opt_data_elk_elasticsearch_config_role_mapping.yml
+                path: elasticsearch/config/role_mapping.yml
+              - key: opt_data_elk_elasticsearch_config_roles.yml
+                path: elasticsearch/config/roles.yml
+              - key: opt_data_elk_kibana_config_kibana.yml
+                path: kibana/config/kibana.yml
+              - key: opt_data_elk_logstash_config_logstash.yml
+                path: logstash/config/logstash.yml
+              - key: opt_data_elk_filebeat_filebeat.yml
+                path: filebeat/filebeat.yml
+              - key: opt_data_elk_filebeat_fields.yml
+                path: filebeat/fields.yml
+              - key: opt_data_elk_filebeat_filebeat.reference.yml
+                path: filebeat/filebeat.reference.yml
+        - name: var-log-elasticsearch-volume
+          hostPath:
+            # directory location on host
+            path: /var/log/elasticsearch
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-elasticsearch
+  namespace: coam-dev-elk-ns
+  labels:
+    app: us-elasticsearch
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    # SSH 端口
+    - name: tcp-isp-elasticsearch-22222
+      protocol: TCP
+      port: 22000
+      targetPort: 22222
+      nodePort: 32004
+    - name: tcp-isp-elasticsearch-9200
+      protocol: TCP
+      port: 9200
+      targetPort: 9200
+      #nodePort: 9200
+    - name: tcp-isp-elasticsearch-9300
+      protocol: TCP
+      port: 9300
+      targetPort: 9300
+      #nodePort: 9300
+  selector:
+    app: us-elasticsearch
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

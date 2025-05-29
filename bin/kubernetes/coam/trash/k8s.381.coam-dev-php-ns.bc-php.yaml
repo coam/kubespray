@@ -1,0 +1,158 @@
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: bcp-deployment
+  namespace: coam-dev-php-ns
+spec:
+  selector:
+    matchLabels:
+      app: bc-php
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: bc-php
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.2
+      containers:
+        - name: bc-php
+          image: harbor.baijiayun.com/phpweb/php7.2.3:v1.0.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32044"
+          # Just sleep forever
+          #command: [ "sleep" ]
+          #args: [ "infinity" ]
+          command: [ "/apps/srv/php7/sbin/php-fpm" ]
+          args: [ "-F" ]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            - containerPort: 9700
+              protocol: TCP
+          securityContext:
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                #command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                command: [ "/bin/sh", "-c", "echo ..." ]
+          volumeMounts:
+            - mountPath: /home/www-data
+              name: home-www-data-volume
+            - mountPath: /etc/php/7.3
+              name: etc-php-volume
+            - mountPath: /var/log
+              name: var-log-php-volume
+            - mountPath: /data/home/coam
+              name: data-home-coam-volume
+            - name: bcp-config-volume
+              mountPath: /apps/srv/php7/lib/php.ini
+              subPath: php.ini
+            - name: bcp-config-volume
+              mountPath: /apps/srv/php7/etc/php-fpm.conf
+              subPath: php-fpm.conf
+            - name: bcp-config-volume
+              mountPath: /apps/srv/php7/etc/php-fpm.d/tools.conf
+              subPath: php-fpm.d/tools.conf
+            - name: bcp-config-volume
+              mountPath: /apps/srv/php7/etc/php-fpm.d/www.conf
+              subPath: php-fpm.d/www.conf
+            - mountPath: /apps/logs/php
+              name: apps-logs-php
+            - mountPath: /apps/logs/xhprof
+              name: apps-logs-xhprof
+      volumes:
+        - name: home-www-data-volume
+          hostPath:
+            # directory location on host
+            path: /home/www-data
+            # this field is optional
+            type: Directory
+        - name: etc-php-volume
+          hostPath:
+            # directory location on host
+            path: /etc/php/7.3
+            # this field is optional
+            type: Directory
+        - name: data-home-coam-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam
+            # this field is optional
+            type: Directory
+        - name: var-log-php-volume
+          hostPath:
+            # directory location on host
+            path: /var/log
+            # this field is optional
+            type: Directory
+        - name: bcp-config-volume
+          configMap:
+            name: bcp-config
+            items:
+              - key: php_conf_php.ini
+                path: php.ini
+              - key: php_conf_php_fpm.conf
+                path: php-fpm.conf
+              - key: php_conf_php_fpm_d_tools.conf
+                path: php-fpm.d/tools.conf
+              - key: php_conf_php_fpm_d_www.conf
+                path: php-fpm.d/www.conf
+        # [](https://www.chenshaowen.com/blog/using-emptydir-hostpath-localvolume-in-kubernetes.html)
+        - name: apps-logs-php
+          emptyDir: { }
+        - name: apps-logs-xhprof
+          emptyDir: { }
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: bc-php
+  namespace: coam-dev-php-ns
+  labels:
+    app: bc-php
+    version: v-0.0.2
+  annotations:
+    service.kubernetes.io/loadbalance-id: "lb-1z1stdk5"
+    service.kubernetes.io/qcloud-loadbalancer-internal-subnetid: "subnet-2gu3li2l"
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: tcp-isp-php-22222
+      protocol: TCP
+      port: 22040
+      targetPort: 22222
+      nodePort: 32044
+    - name: tcp-isp-php-9700
+      protocol: TCP
+      port: 9700
+      targetPort: 9700
+      #nodePort: 9700
+  selector:
+    app: bc-php
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

@@ -1,0 +1,60 @@
+# [From](https://godoc.org/k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta2)
+# [默认配置][kubeadm config print init-defaults]
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+bootstrapTokens:
+  - groups:
+      - system:bootstrappers:kubeadm:default-node-token
+    token: 0otg0n.svhzq2kfbdxdy216
+    ttl: 24h0m0s
+    usages:
+      - signing
+      - authentication
+localAPIEndpoint:
+  advertiseAddress: 172.17.0.3
+  bindPort: 6443
+nodeRegistration:
+  criSocket: /var/run/dockershim.sock
+  name: t.cs.1
+  taints:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+#---
+#kind: MasterConfiguration
+#apiVersion: kubeadm.k8s.io/v1beta1
+#kubeletConfiguration:
+#  failSwapOn: false
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+#cgroupDriver: "systemd"
+failSwapOn: false
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: ClusterConfiguration
+kubernetesVersion: v1.18.6
+clusterName: kubernetes
+imageRepository: k8s.gcr.io
+#imageRepository: repository.ioros.com
+certificatesDir: /etc/kubernetes/pki
+apiServer:
+  extraArgs:
+    authorization-mode: Node,RBAC
+    # [30000-32767] [修改kubernetes服务nodeport类型的端口范围](https://yq.aliyun.com/ask/494941)
+    service-node-port-range: 300-33000
+    # 取消交换分区限制
+    #fail-swap-on: "false"
+  timeoutForControlPlane: 4m0s
+controllerManager:
+  extraArgs:
+    terminated-pod-gc-threshold: '10'
+dns:
+  type: CoreDNS
+etcd:
+  local:
+    dataDir: /var/lib/etcd
+networking:
+  dnsDomain: cluster.local
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 10.96.0.0/12
+scheduler: { }

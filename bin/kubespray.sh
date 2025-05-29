@@ -54,6 +54,10 @@ reconfig)
 #  caller sed -i "s/^# supplementary_addresses_in_ssl_keys:.*/supplementary_addresses_in_ssl_keys: [ 1.cos.iirii.com ]/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
   caller sed -i "s/^enable_nodelocaldns: true/enable_nodelocaldns: false/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
   caller sed -i "s/^# kubectl_localhost: false/kubectl_localhost: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
+  caller sed -i "s/^kube_network_plugin: calico/kube_network_plugin: cilium/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
+
+  # MetalLB [kube-proxy in IPVS mode breaks MetalLB IPs #153](https://github.com/metallb/metallb/issues/153#issuecomment-518651132)
+  caller sed -i "s/^kube_proxy_strict_arp: false/kube_proxy_strict_arp: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
     echo 'kube_apiserver_node_port_range: "30000-39999"' >> inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 

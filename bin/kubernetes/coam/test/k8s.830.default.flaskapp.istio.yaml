@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: flaskapp-svc
+  labels:
+    app: flaskapp-svc
+spec:
+  selector:
+    app: flaskapp-deploy
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: flaskapp-v111
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: flaskapp-deploy
+        version: v111
+    spec:
+      #nodeName: t.cs.2
+      containers:
+        - name: flaskapp-deploy
+          image: dustise/flaskapp
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: version
+              value: v111
+          ports:
+            - containerPort: 80
+          #resources:
+          #  requests:
+          #    cpu: 20m
+          #    memory: 50Mi
+          #  limits:
+          #    cpu: 50m
+          #    memory: 128Mi
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: flaskapp-v222
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: flaskapp-deploy
+        version: v222
+    spec:
+      #nodeName: t.cs.2
+      containers:
+        - name: flaskapp-deploy
+          image: dustise/flaskapp
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: version
+              value: v222
+          ports:
+            - containerPort: 80
+          #resources:
+          #  requests:
+          #    cpu: 20m
+          #    memory: 50Mi
+          #  limits:
+          #    cpu: 50m
+          #    memory: 128Mi
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: flaskapp-destinationrule
+spec:
+  host: flaskapp-svc
+  trafficPolicy:
+    loadBalancer:
+      simple: RANDOM
+  subsets:
+    - name: v111
+      labels:
+        version: v111
+    - name: v222
+      labels:
+        version: v222
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: flask-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "istio-k8s.iirii.com"
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: flask
+spec:
+  hosts:
+    - "istio-k8s.iirii.com"
+  gateways:
+    - flask-gateway
+  http:
+    - route:
+        - destination:
+            host: flaskapp-svc
+            subset: v222

@@ -1,0 +1,186 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-emqttd-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[ConfigMap][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: known-hosts-config
+  namespace: coam-dev-emqttd-ns
+data:
+  known-hosts: |
+    |1|ywhAW+ewRbe7U0sIafazxt5Nv+A=|ZlVY9d5FubIds2uZ6Iu40EfhLl0= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCdnpZ/ty5WebkQhrdAYkpH29BQixITZz0F8IxFvGZIAoaWgNflBTQWZjCML+iiKqpAeEUr8gQH5jQrnnvsskfk=
+    |1|pnAESIHcQgwxc5iJeZVXFnBcBZY=|y0/i+lp6l13q2lCSpJYTVBYPG4E= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBDCgXQ0bfsyPzb9rJxSdjLQYjp7LMyUUoVTK3ydaX9mNteqicMOxMoCOVfNBuZSkeWnM4EfmolDST+kg4Mc4Gng=
+    |1|OSbL3wopSW1IqUMyL2vKsijUjiQ=|+5pjW4napD3HyGGbkW1OLPGHzPU= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBAirP/eRWtfKoRyY3T1GaN09tPBmsxnzsw97G/fj4np0McC1sj41Wn3poOm+nvAqr/5JqLxTmIZoxP+hdIY4szQ=
+    |1|XF4uL9bBGWCoqwYmajvy7AntKQU=|Ax5wxWeBqGKC001FdDEMyn11xHk= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBDXC1sWwmgtJ9XNi51x+YQr7y6ZXyo9PJ02Jy+uZbsqgJ4E5pe8Xc5kSKyxby4BD96hkGbQeZai7rFvs1AJceNA=
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: emqttd-deployment
+  namespace: coam-dev-emqttd-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-emqttd
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-emqttd
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      #nodeName: t.cs.2
+      containers:
+        - name: us-emqttd
+          image: registry.ioros.com/coam/us.emqttd:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32002"
+          # Just sleep forever
+          command: ["sleep"]
+          args: ["infinity"]
+          #command: ["/opt/data/emqx-rel/_build/emqx/rel/emqx/bin/emqx"]
+          #args: ["foreground"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            # Dashboard 管理控制台端口
+            - containerPort: 18083
+              protocol: TCP
+            # HTTP API 端口
+            - containerPort: 8080
+              protocol: TCP
+            # MQTT 协议端口
+            - containerPort: 1883
+              protocol: TCP
+            # MQTT/SSL 端口
+            - containerPort: 8883
+              protocol: TCP
+            # MQTT/WebSocket 端口
+            - containerPort: 8083
+              protocol: TCP
+            # 其它 端口
+            - containerPort: 8084
+              protocol: TCP
+            - containerPort: 4369
+              protocol: TCP
+            - containerPort: 5369
+              protocol: TCP
+            - containerPort: 6369
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - name: etc-emqttd-volume
+              mountPath: /etc/emqttd
+            - name: known-hosts-config-volume
+              mountPath: /data/home/coam/.ssh/known_hosts
+              subPath: known_hosts
+            - name: var-log-emqttd-volume
+              mountPath: /var/log/emqttd
+      volumes:
+        - name: etc-emqttd-volume
+          hostPath:
+            # directory location on host
+            path: /etc/emqttd
+            # this field is optional
+            type: Directory
+        - name: known-hosts-config-volume
+          configMap:
+            name: known-hosts-config
+            items:
+              - key: known-hosts
+                path: known_hosts
+        - name: var-log-emqttd-volume
+          hostPath:
+            # directory location on host
+            path: /var/log/emqttd
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-emqttd
+  namespace: coam-dev-emqttd-ns
+  labels:
+    app: us-emqttd
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    # SSH 端口
+    - name: tcp-isp-emqttd-22222
+      protocol: TCP
+      port: 22000
+      targetPort: 22222
+      nodePort: 32002
+    # Dashboard 管理控制台端口
+    - name: tcp-isp-emqttd-18083
+      protocol: TCP
+      port: 18083
+      targetPort: 18083
+      #nodePort: 18083
+    # HTTP API 端口
+    #- name: tcp-isp-emqttd-8080
+    #  protocol: TCP
+    #  port: 8080
+    #  targetPort: 8080
+    #  nodePort: 31088
+    # MQTT 协议端口
+    - name: tcp-isp-emqttd-1883
+      protocol: TCP
+      port: 1883
+      targetPort: 1883
+      #nodePort: 1883
+    # MQTT/SSL 端口
+    - name: tcp-isp-emqttd-8883
+      protocol: TCP
+      port: 8883
+      targetPort: 8883
+      #nodePort: 8883
+    # MQTT/WebSocket 端口
+    - name: tcp-isp-emqttd-8083
+      protocol: TCP
+      port: 8083
+      targetPort: 8083
+      #nodePort: 8083
+  selector:
+    app: us-emqttd
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

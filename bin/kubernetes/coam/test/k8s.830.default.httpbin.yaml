@@ -1,0 +1,106 @@
+# Copyright 2017 Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+##################################################################################################
+# httpbin service
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin-service
+  labels:
+    app: httpbin-service
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 80
+  selector:
+    app: httpbin-deploy
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: httpbin-deploy
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: httpbin-deploy
+        version: v1
+    spec:
+      #nodeName: t.cs.2
+      containers:
+        - image: docker.io/kennethreitz/httpbin
+          imagePullPolicy: IfNotPresent
+          name: httpbin-deploy
+          ports:
+            - containerPort: 80
+          #resources:
+          #  requests:
+          #    cpu: 20m
+          #    memory: 50Mi
+          #  limits:
+          #    cpu: 50m
+          #    memory: 128Mi
+
+#---
+#apiVersion: networking.istio.io/v1alpha3
+#kind: Gateway
+#metadata:
+#  name: httpbin-gateway
+#spec:
+#  selector:
+#    istio: coamgateway
+#    #istio: ingressgateway
+#  servers:
+#    - port:
+#        number: 8000
+#        name: http-all
+#        protocol: HTTP
+#      hosts:
+#        - "istio-k8s.iirii.com"
+#
+#---
+#apiVersion: networking.istio.io/v1alpha3
+#kind: VirtualService
+#metadata:
+#  name: httpbin-vs
+#spec:
+#  hosts:
+#    - "istio-k8s.iirii.com"
+#  gateways:
+#    - httpbin-gateway
+#  http:
+#    - route:
+#        - destination:
+#            host: httpbin-service.default.svc.cluster.local
+#      timeout: 5s
+
+
+#---
+#apiVersion: networking.istio.io/v1alpha3
+#kind: ServiceEntry
+#metadata:
+#  name: httpbin-ext
+#spec:
+#  hosts:
+#    - httpbin.org
+#  ports:
+#    - number: 80
+#      name: http
+#      protocol: HTTP
+#  resolution: DNS

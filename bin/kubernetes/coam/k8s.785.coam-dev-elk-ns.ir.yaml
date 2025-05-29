@@ -1,0 +1,29 @@
+#[IngressRoute][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-dev-elk-ns-ioros.com-rules
+  namespace: coam-dev-elk-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`es.ioros.com`) && PathPrefix(`/`)
+      middlewares: []
+      priority: 0
+      services:
+        - name: us-elasticsearch
+          port: 9200
+    - kind: Rule
+      match: Host(`kibana.ioros.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-kibana
+          port: 5601
+  tls:
+    secretName: coam-elk-acme-ioros.com-tls
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

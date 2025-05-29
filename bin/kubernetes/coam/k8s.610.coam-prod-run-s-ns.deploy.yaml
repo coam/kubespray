@@ -1,0 +1,188 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-prod-run-s-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[IngressRoute][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-run-s-iirii.com-rules-http
+  namespace: coam-prod-run-s-ns
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`rs.iirii.com`) && PathPrefix(`/`)
+      middlewares:
+        - name: coam-https-redirectscheme
+      priority: 0
+      services:
+        - name: us-run-s
+          port: 3000
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-run-s-iirii.com-rules
+  namespace: coam-prod-run-s-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`rs.iirii.com`) && PathPrefix(`/`)
+      middlewares:
+        - name: coam-https-redirectscheme
+      priority: 0
+      services:
+        - name: us-run-s
+          port: 3000
+  tls:
+    secretName: coam-run-s-acme-iirii.com-tls
+
+---
+#[Middleware][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# Redirect to https
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: coam-https-redirectscheme
+  namespace: coam-prod-run-s-ns
+spec:
+  redirectScheme:
+    scheme: https
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: run-s-deployment
+  namespace: coam-prod-run-s-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-run-s
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-run-s
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.1
+      #使用主机网络 - 暴露端口:500,4500- 不推荐 -- 不能开启,已使用 `hostPort` 暴露主机端口,否则开启端口监听将导致集群崩溃!!!
+      #hostNetwork: true
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: us-run-s
+          #image: registry.ioros.com/coam/us.runs:0.0.2
+          image: registry.cn-hangzhou.aliyuncs.com/coam/us.runs:20.11.11
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32010"
+          # 工作目录
+          workingDir: /data/home/coam/Run/runs
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: ["/bin/sh", "-c"]
+          args: ["runs api run -i 000000"]
+          #args: ["/data/home/coam/ServerRun/runs/runs api run -i 000000"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            - containerPort: 3000
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /etc/ssl/coam
+              name: etc-ssl-coam-volume
+            - name: data-home-coam-serverrun-volume
+              mountPath: /data/home/coam/Run
+            - name: var-log-volume
+              mountPath: /var/log
+      volumes:
+        - name: etc-ssl-coam-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ssl/coam
+            # this field is optional
+            type: Directory
+        - name: data-home-coam-serverrun-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam/Run
+            # this field is optional
+            type: Directory
+        - name: var-log-volume
+          hostPath:
+            # directory location on host
+            path: /var/log
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/run-s/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-run-s
+  namespace: coam-prod-run-s-ns
+  labels:
+    app: us-run-s
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    # SSH 端口
+    - name: tcp-isp-run-s-22222
+      protocol: TCP
+      port: 22000
+      targetPort: 22222
+      nodePort: 32010
+    - name: tcp-isp-run-s-3000
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+      #nodePort: 3000
+  selector:
+    app: us-run-s
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

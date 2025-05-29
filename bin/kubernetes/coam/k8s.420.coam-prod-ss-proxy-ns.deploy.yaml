@@ -1,0 +1,124 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#[Reference](https://github.com/kubernetes/examples/tree/master/staging/storage/redis)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-prod-ss-proxy-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ss-proxy-deployment
+  namespace: coam-prod-ss-proxy-ns
+  labels:
+    app: us-ss-proxy
+    version: v-0.0.2
+spec:
+  selector:
+    matchLabels:
+      app: us-ss-proxy
+      version: v-0.0.2
+  template:
+    metadata:
+      labels:
+        app: us-ss-proxy
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.1
+      #hostNetwork: true
+      containers:
+        - name: us-ss-proxy
+          image: registry.ioros.com/coam/us.ss_proxy:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32222"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: ["ssserver"]
+          args: ["-c", "/etc/shadowsocks/ss-server.json", "start"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 8088
+              #暴露集群内主机端口
+              #hostPort: 8088
+              protocol: TCP
+            - containerPort: 22222
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1022
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /home/ss_proxy
+              name: home-ss-proxy-volume
+            - mountPath: /etc/shadowsocks
+              name: etc-ss-server-volume
+            - mountPath: /var/log
+              name: var-log-volume
+      volumes:
+        - name: home-ss-proxy-volume
+          hostPath:
+            # directory location on host
+            path: /home/ss_proxy
+            # this field is optional
+            type: Directory
+        - name: etc-ss-server-volume
+          hostPath:
+            # directory location on host
+            path: /etc/shadowsocks
+            # this field is optional
+            type: Directory
+        - name: var-log-volume
+          hostPath:
+            # directory location on host
+            path: /var/log
+            # this field is optional
+            type: Directory
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-ss-proxy
+  namespace: coam-prod-ss-proxy-ns
+  labels:
+    app: us-ss-proxy
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: tcp-isp-ss-proxy-8088
+      protocol: TCP
+      port: 8088
+      targetPort: 8088
+      #nodePort: 8003
+    - name: tcp-isp-ss-proxy-22222
+      protocol: TCP
+      port: 22222
+      targetPort: 22222
+      nodePort: 32222
+  selector:
+    app: us-ss-proxy
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

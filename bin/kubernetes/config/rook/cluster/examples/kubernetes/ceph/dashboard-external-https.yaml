@@ -1,0 +1,21 @@
+# [rook.github.io/docs/rook/v0.8/ceph-dashboard.md](https://github.com/rook/rook.github.io/blob/master/docs/rook/v0.8/ceph-dashboard.md)
+apiVersion: v1
+kind: Service
+metadata:
+  name: rook-ceph-mgr-dashboard-external-https
+  namespace: rook-ceph
+  labels:
+    app: rook-ceph-mgr
+    rook_cluster: rook-ceph
+spec:
+  ports:
+    - name: dashboard
+      port: 8443
+      protocol: TCP
+      targetPort: 8443
+      nodePort: 30543
+  selector:
+    app: rook-ceph-mgr
+    rook_cluster: rook-ceph
+  sessionAffinity: None
+  type: NodePort

@@ -1,0 +1,373 @@
+# [From](https://imroc.io/posts/kubernetes/let-ingress-enable-free-https-with-cert-manager/)
+#[](https://crt.sh/?q=%pyios.com)
+# [t.cs.1](*.pyios.com)
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: coam-in-staging-pyios-com
+  namespace: coam-dev-nginx-ns
+spec:
+  secretName: coam-in-staging-pyios-com-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - pyios.com
+    - www.pyios.com
+    - wsa.pyios.com
+    - wechat.wh.pyios.com
+    - admin.wh.pyios.com
+    - operate.wh.pyios.com
+    - ucenter.wh.pyios.com
+    - mc.wh.pyios.com
+    - mall.wh.pyios.com
+    - shop.wh.pyios.com
+    - api.wh.pyios.com
+    - opi.wh.pyios.com
+    - wechat.qd.pyios.com
+    - admin.qd.pyios.com
+  acme:
+    config:
+      - http01:
+          ingressClass: nginx
+        domains:
+          - pyios.com
+          - www.pyios.com
+          - wsa.pyios.com
+          - wechat.wh.pyios.com
+          - admin.wh.pyios.com
+          - operate.wh.pyios.com
+          - ucenter.wh.pyios.com
+          - mc.wh.pyios.com
+          - mall.wh.pyios.com
+          - shop.wh.pyios.com
+          - api.wh.pyios.com
+          - opi.wh.pyios.com
+          - wechat.qd.pyios.com
+          - admin.qd.pyios.com
+
+---
+# [t.cs.1](*.nocs.cn)
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: coam-in-staging-nocs-cn
+  namespace: coam-dev-nginx-ns
+spec:
+  secretName: coam-in-staging-nocs-cn-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - nocs.cn
+    - w.nocs.cn
+    - www.nocs.cn
+    - wl.nocs.cn
+    - app.nocs.cn
+    - mail.nocs.cn
+    - cli.nocs.cn
+    - mpi.nocs.cn
+    - wpi.nocs.cn
+    - p.nocs.cn
+    - gp.nocs.cn
+    - dp.nocs.cn
+    - cp.nocs.cn
+    - lp.nocs.cn
+    - pp.nocs.cn
+    - ep.nocs.cn
+    - ap.nocs.cn
+    - lw.nocs.cn
+    - im.nocs.cn
+    - sns.nocs.cn
+    - blog.nocs.cn
+    - ma.nocs.cn
+    - mirror.nocs.cn
+    - open.nocs.cn
+    - pay.nocs.cn
+    - forum.nocs.cn
+    - wsa.nocs.cn
+    - api.nocs.cn
+  acme:
+    config:
+      - http01:
+          ingressClass: nginx
+        domains:
+          - nocs.cn
+          - w.nocs.cn
+          - www.nocs.cn
+          - wl.nocs.cn
+          - app.nocs.cn
+          - mail.nocs.cn
+          - cli.nocs.cn
+          - mpi.nocs.cn
+          - wpi.nocs.cn
+          - p.nocs.cn
+          - gp.nocs.cn
+          - dp.nocs.cn
+          - cp.nocs.cn
+          - lp.nocs.cn
+          - pp.nocs.cn
+          - ep.nocs.cn
+          - ap.nocs.cn
+          - lw.nocs.cn
+          - im.nocs.cn
+          - sns.nocs.cn
+          - blog.nocs.cn
+          - ma.nocs.cn
+          - mirror.nocs.cn
+          - open.nocs.cn
+          - pay.nocs.cn
+          - forum.nocs.cn
+          - wsa.nocs.cn
+          - api.nocs.cn
+
+---
+# [t.cs.1](tcs.1.*.iirii.com)
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: coam-in-staging-tcs-1-iirii-com
+  namespace: coam-dev-nginx-ns
+spec:
+  secretName: coam-in-staging-tcs-1-iirii-com-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - tcs.1.iirii.com
+    - tcs.1.sw.iirii.com
+    - tcs.1.sc.iirii.com
+    - tcs.1.sr.iirii.com
+    - tcs.1.sh.iirii.com
+    - tcs.1.so.iirii.com
+    - tcs.1.se.iirii.com
+    - tcs.1.ww.iirii.com
+    - tcs.1.wc.iirii.com
+    - tcs.1.wr.iirii.com
+    - tcs.1.wh.zsc.iirii.com
+    - tcs.1.wo.iirii.com
+    - tcs.1.we.iirii.com
+  acme:
+    config:
+      - http01:
+          ingressClass: nginx
+        domains:
+          - tcs.1.iirii.com
+          - tcs.1.sw.iirii.com
+          - tcs.1.sc.iirii.com
+          - tcs.1.sr.iirii.com
+          - tcs.1.sh.iirii.com
+          - tcs.1.so.iirii.com
+          - tcs.1.se.iirii.com
+          - tcs.1.ww.iirii.com
+          - tcs.1.wc.iirii.com
+          - tcs.1.wr.iirii.com
+          - tcs.1.wh.zsc.iirii.com
+          - tcs.1.wo.iirii.com
+          - tcs.1.we.iirii.com
+
+---
+# [t.cs.1](got.iirii.com)
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: coam-in-staging-got-iirii-com
+  namespace: coam-dev-nginx-ns
+spec:
+  secretName: coam-in-staging-got-iirii-com-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - got.iirii.com
+  acme:
+    config:
+      - http01:
+          ingressClass: nginx
+        domains:
+          - got.iirii.com
+
+---
+# [t.cs.2](git.iirii.com)
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: coam-in-staging-git-iirii-com
+  namespace: coam-dev-nginx-ns
+spec:
+  secretName: coam-in-staging-git-iirii-com-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - git.iirii.com
+  acme:
+    config:
+      - http01:
+          ingressClass: nginx
+        domains:
+          - git.iirii.com
+
+---
+# [t.cs.1](osssn.com)
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: coam-in-staging-osssn-com
+  namespace: coam-dev-nginx-ns
+spec:
+  secretName: coam-in-staging-osssn-com-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - osssn.com
+    - w.osssn.com
+    - www.osssn.com
+    - p.osssn.com
+    - ap.osssn.com
+    - cp.osssn.com
+    - ep.osssn.com
+    - open.osssn.com
+    - api.osssn.com
+    - pay.osssn.com
+    - wsa.osssn.com
+  acme:
+    config:
+      - http01:
+          ingressClass: nginx
+        domains:
+          - osssn.com
+          - w.osssn.com
+          - www.osssn.com
+          - p.osssn.com
+          - ap.osssn.com
+          - cp.osssn.com
+          - ep.osssn.com
+          - open.osssn.com
+          - api.osssn.com
+          - pay.osssn.com
+          - wsa.osssn.com
+
+---
+# [t.cs.1](ossse.com)
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: coam-in-staging-ossse-com
+  namespace: coam-dev-nginx-ns
+spec:
+  secretName: coam-in-staging-ossse-com-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - ossse.com
+    - w.ossse.com
+    - www.ossse.com
+    - p.ossse.com
+    - ap.ossse.com
+    - cp.ossse.com
+    - ep.ossse.com
+    - mp.ossse.com
+    - open.ossse.com
+    - api.ossse.com
+    - pay.ossse.com
+    - wsa.ossse.com
+  acme:
+    config:
+      - http01:
+          ingressClass: nginx
+        domains:
+          - ossse.com
+          - w.ossse.com
+          - www.ossse.com
+          - p.ossse.com
+          - ap.ossse.com
+          - cp.ossse.com
+          - ep.ossse.com
+          - mp.ossse.com
+          - open.ossse.com
+          - api.ossse.com
+          - pay.ossse.com
+          - wsa.ossse.com
+
+---
+# [t.cs.1](iie.com)
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: coam-in-staging-iie-io
+  namespace: coam-dev-nginx-ns
+spec:
+  secretName: coam-in-staging-iie-io-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - iie.io
+    - www.iie.io
+    - api.iie.io
+    - mpi.iie.io
+    - open.iie.io
+    - admin.iie.io
+    - wsa.iie.io
+    - mail.iie.io
+  acme:
+    config:
+      - http01:
+          ingressClass: nginx
+        domains:
+          - iie.io
+          - www.iie.io
+          - api.iie.io
+          - mpi.iie.io
+          - open.iie.io
+          - admin.iie.io
+          - wsa.iie.io
+          - mail.iie.io
+
+---
+# [t.cs.1](yyi.com)
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: coam-in-staging-yyi-io
+  namespace: coam-dev-nginx-ns
+spec:
+  secretName: coam-in-staging-yyi-io-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - yyi.io
+    - www.yyi.io
+    - apl.yyi.io
+    - admin.yyi.io
+    - wsa.yyi.io
+    - zaw.yyi.io
+    - zav.yyi.io
+    - tj.yyi.io
+    - rc.yyi.io
+    - api.yyi.io
+    - cli.yyi.io
+    - open.yyi.io
+    - mail.yyi.io
+  acme:
+    config:
+      - http01:
+          ingressClass: nginx
+        domains:
+          - yyi.io
+          - www.yyi.io
+          - apl.yyi.io
+          - admin.yyi.io
+          - wsa.yyi.io
+          - zaw.yyi.io
+          - zav.yyi.io
+          - tj.yyi.io
+          - rc.yyi.io
+          - api.yyi.io
+          - cli.yyi.io
+          - open.yyi.io
+          - mail.yyi.io

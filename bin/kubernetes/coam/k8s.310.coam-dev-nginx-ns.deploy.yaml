@@ -1,0 +1,1743 @@
+#[From](https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-nginx-ns
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+    istio-injection: enabled
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: coam-dev-nginx-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-nginx
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-nginx
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      #hostNetwork: true
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.2
+      hostAliases:
+        - ip: "172.17.0.15"
+          hostnames:
+            - "registry.ioros.com"
+      containers:
+        - name: us-nginx
+          #image: registry.ioros.com/coam/us.nginx:0.0.2
+          image: registry.cn-hangzhou.aliyuncs.com/coam/us.nginx:20.11.11
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32011"
+            #securityContext:
+          #readOnlyRootFilesystem: true
+          #runAsNonRoot: true
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: [ "/usr/sbin/nginx" ]
+          args: [ "-g", "daemon off;" ]
+          #livenessProbe:
+          #  httpGet:
+          #    host: w.nocs.cn
+          #    path: /pi.php
+          #    port: 443
+          #    scheme: HTTPS
+          #  initialDelaySeconds: 10
+          #  periodSeconds: 3
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+            - containerPort: 8443
+              protocol: TCP
+            - containerPort: 22222
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: [ "/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config" ]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /home/nginx
+              name: home-nginx-volume
+            - mountPath: /etc/nginx
+              name: etc-nginx-volume
+            - mountPath: /etc/ssl/coam
+              name: etc-ssl-coam-volume
+            - mountPath: /data/home/coam
+              name: data-home-coam-volume
+            - mountPath: /var/log/nginx
+              name: var-log-nginx-volume
+        ## [Using nginx 1.9 DNS resolver output error periodically](https://github.com/kubernetes/kubernetes/issues/26309)
+        #- name: dnsmasq
+        #  image: "janeczku/go-dnsmasq:release-1.0.7"
+        #  args:
+        #    - --listen
+        #    - "127.0.0.1:53"
+        #    - --default-resolver
+        #    - --append-search-domains
+        #    - --hostsfile=/etc/hosts
+        #    - --verbose
+      volumes:
+        - name: home-nginx-volume
+          hostPath:
+            # directory location on host
+            path: /home/nginx
+            # this field is optional
+            type: Directory
+        - name: etc-nginx-volume
+          hostPath:
+            # directory location on host
+            path: /etc/nginx
+            # this field is optional
+            type: Directory
+        - name: etc-ssl-coam-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ssl/coam
+            # this field is optional
+            type: Directory
+        - name: data-home-coam-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam
+            # this field is optional
+            type: Directory
+        - name: var-log-nginx-volume
+          hostPath:
+            # directory location on host
+            path: /var/log/nginx
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+# kubectl expose deployment/my-nginx
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-nginx
+  namespace: coam-dev-nginx-ns
+  labels:
+    app: us-nginx
+    version: v-0.0.2
+  annotations:
+    traefik.ingress.kubernetes.io/load-balancer-method: drr
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: http-isp-nginx-80
+      port: 8080
+      targetPort: 8080
+      #nodePort: 8080
+      protocol: TCP
+    - name: https-isp-nginx-443
+      port: 8443
+      targetPort: 8443
+      #nodePort: 8443
+      protocol: TCP
+    - name: tcp-isp-nginx-22222
+      protocol: TCP
+      port: 22010
+      targetPort: 22222
+      nodePort: 32011
+  selector:
+    app: us-nginx
+    version: v-0.0.2
+  sessionAffinity: None
+
+# 跨命名空间访问
+#---
+#kind: Service
+#apiVersion: v1
+#metadata:
+#  name: us-php
+#  namespace: coam-dev-nginx-ns
+#spec:
+#  type: ExternalName
+#  externalName: us-php.coam-dev-php-ns.svc.cluster.local
+#  #externalName: nocs.cn
+#  ports:
+#    - port: 29000
+---
+#[IngressRoute][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-pyios.com-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ts_web.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ts_api.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ts_rpc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ts_admin.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`hs_api.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`hs_admin.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`immt_web.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`immt_api.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`immt_admin.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`immt_cashier.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`immt_blockchain.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`immt_wallet.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`immt_bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`xs_api.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`xs_web.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`es_api.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`es_web.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`es_admin.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ws_api.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wsapi.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wc_api.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wcapi.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`api.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`tools.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`docs.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.e87444770.test-at.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`local-e87444770.test-at.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`api.rt.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`loud.rt.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-pyios.com-tls
+
+---
+#[IngressRoute][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-pyios.com-rule
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`www.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`api.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`tools.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.e87444770.test-at.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`local-e87444770.test-at.bc.pyios.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+
+---
+#[IngressRoute][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-baijiayun.com-rule
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`local-test-www.baijiayun.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`local-test-api.baijiayun.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`test-www.baijiayun.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`local-test-tools.baijiayun.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`test-tools.baijiayun.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`local-e87444770.test-at.baijiayun.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`e87444770.test-at.baijiayun.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`local-e83297594.test-at.baijiayun.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-baijiayun.com-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-coam.co-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`w.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wl.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`app.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mail.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cli.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mpi.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wpi.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`p.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`gp.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`dp.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cp.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`lp.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`pp.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ep.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ap.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`lw.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`im.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`sns.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`blog.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ma.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mirror.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`open.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`pay.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`forum.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wsa.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`api.coam.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-coam.co-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-nocs.cn-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`w.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wl.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`app.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mail.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cli.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mpi.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wpi.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`p.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`gp.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`dp.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cp.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`lp.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`pp.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ep.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ap.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`lw.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`im.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`sns.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`blog.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ma.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mirror.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`open.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`pay.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`forum.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wsa.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`api.nocs.cn`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-nocs.cn-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-1.tcs.iirii.com-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`sw.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`sc.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`sr.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`sh.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`so.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`se.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ww.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wc.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wr.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wh.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wo.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`we.1.tcs.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-iirii.com-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-iirii.com-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wp.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`sa.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`sarah.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`got.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`git.iirii.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-iirii.com-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-osssn.com-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`w.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`p.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ap.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cp.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ep.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`open.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`api.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`pay.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wsa.osssn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-osssn.com-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-ossse.com-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`w.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`p.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ap.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cp.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ep.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mp.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`open.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`api.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`pay.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wsa.ossse.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-ossse.com-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-iie.io-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`iie.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.iie.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`api.iie.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mpi.iie.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`open.iie.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`admin.iie.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wsa.iie.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mail.iie.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-iie.io-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-yyi.io-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`www.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`apl.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`admin.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`wsa.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`zaw.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`zav.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`tj.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`rc.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`api.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cli.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`open.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mail.yyi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-yyi.io-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-ioros.com-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`registry.ioros.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`repository.ioros.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`jenkins.ioros.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+  tls:
+    secretName: coam-nginx-acme-ioros.com-tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-in-sales.io-rules
+  namespace: coam-dev-nginx-ns
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`alios.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`aliot.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`apn.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`casio.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`coio.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`copen.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cosco.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cssc.co`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`cssc.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ggs.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`hhi.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`iif.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ipu.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`iui.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`nno.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`opple.io`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`icsay.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`icsnn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`iioos.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ioocs.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`ioros.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`iwwwn.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`iwwwo.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`iysin.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`mnter.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`pymin.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+    - kind: Rule
+      match: Host(`pysay.com`) && PathPrefix(`/`)
+      middlewares: [ ]
+      priority: 0
+      services:
+        - name: us-nginx
+          port: 8080
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

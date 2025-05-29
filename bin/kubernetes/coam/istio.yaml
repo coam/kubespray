@@ -1,0 +1,139 @@
+###https://istio.io/docs/reference/commands/operator/###
+###https://istio.io/docs/reference/config/istio.operator.v1alpha1/###
+###https://istio.io/docs/reference/config/istio.operator.v1alpha1/#KubernetesResourcesSpec###
+
+###istio 新版本调整了外部组件的加载方式   istio-ingressgateway 的端口也调整了
+
+###查看默认: istioctl profile dump defalut ###
+###安装: istioctl manifest install -f istio.yaml ###
+###卸载: istioctl manifest generate -f istio.yaml | kubectl delete -f - ###
+###扩展插件安装: kubectl apply -f samples/addons -n istio-system ###
+
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: istio-operator
+spec:
+  profile: default
+  hub: "xuachqgw.mirror.aliyuncs.com/istio"
+  #tag: 1.7.4
+
+  ###istio原生组件###
+  components:
+    base:
+      enabled: true  
+    cni:
+      enabled: true      
+
+    pilot:
+      k8s:
+        resources:
+          requests:
+            memory: 1024Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 1
+            maxUnavailable: 0 
+        env:
+        ###更新:日志追踪采集的样本比例###               
+        - name: PILOT_TRACE_SAMPLING
+          value: "100"
+        ###更新: 设置获取请求的remoteIP https://github.com/istio/istio/issues/15236###
+        - name: PILOT_SIDECAR_USE_REMOTE_ADDRESS
+          value: "true"   
+
+    ingressGateways:
+    - enabled: true
+      name: istio-ingressgateway    
+      k8s:
+
+        #overlays: 
+        #- apiVersion: apps/v1
+        #  kind: Deployment
+        #  name: istio-ingressgateway
+        #  patches:
+        #  - path: spec.strategy.rollingUpdate
+        #    value:
+        #      maxSurge: 1
+        #      maxUnavailable: 0
+
+        #strategy:
+        #  rollingUpdate:
+        #    maxSurge: 1
+        #    maxUnavailable: 0 
+
+        ###https://istio.io/docs/reference/config/istio.operator.v1alpha1/#ServiceSpec###
+        ###Error: failed to install manifests: generated config failed semantic validation: port http2/80 in gateway istio-ingressgateway invalid: targetPort is set to 80, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true
+        service: 
+          #name: istio-ingressgateway
+          type: NodePort
+          ###指定端口映射###
+          ports:
+          - name: status-port
+            port: 15021
+            targetPort: 15021
+          - name: http2
+            port: 80
+            targetPort: 8080
+            nodePort: 31380
+          - name: https
+            port: 443
+            targetPort: 8443
+          - name: tcp
+            port: 31400
+            targetPort: 31400
+          - name: tls
+            port: 15443
+            targetPort: 15443           
+
+  values:
+
+    meshConfig: 
+      ###禁用策略检查###
+      disablePolicyChecks: true
+      ###允许"失败打开"策略,也即当Mixer Policy Pod无法响应时,所有的请求会成功,而不是报503错误###
+      policyCheckFailOpen: true
+      ###第三方jwttoken,比较安全,需要k8s支持,istio默认检测并打开###
+      #jwtPolicy: third-party-jwt
+
+
+    #global:
+      ###禁用策略检查###
+      #disablePolicyChecks: true
+      ###允许"失败打开"策略,也即当Mixer Policy Pod无法响应时,所有的请求会成功,而不是报503错误###
+      #policyCheckFailOpen: true
+      ###第三方jwttoken,比较安全,需要k8s支持,istio默认检测并打开###
+      #jwtPolicy: third-party-jwt
+
+    grafana:
+      hub: xuachqgw.mirror.aliyuncs.com/grafana
+    prometheus:
+      hub: xuachqgw.mirror.aliyuncs.com/prom
+      ###保留24小时内的数据###
+      retention: 24h
+      ###抓取指标数据的频率###
+      scrapeInterval: 5s
+
+    tracing:
+      jaeger:
+        hub: xuachqgw.mirror.aliyuncs.com/jaegertracing
+
+    ###gateway使用ClusterIP###
+    #gateways: 
+    #  istio-ingressgateway: 
+    #    type: NodePort
+
+
+    ###cni排除的ns###
+    cni:
+      excludeNamespaces:
+       - istio-system
+       - kube-system
+       - kube-node-lease
+       - kube-public
+
+
+
+
+
+    
