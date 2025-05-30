@@ -1,0 +1,201 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-prod-docs-ns
+  labels:
+    istio-injection: enabled
+
+#[IngressRoute][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-docs-iirii.com-rules-http
+  namespace: coam-prod-docs-ns
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`www.iirii.com`) && PathPrefix(`/`)
+      middlewares:
+        - name: coam-https-redirectscheme
+      priority: 0
+      services:
+        - name: us-docs
+          port: 8000
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: coam-docs-iirii.com-rules
+  namespace: coam-prod-docs-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`www.iirii.com`) && PathPrefix(`/`)
+      middlewares:
+        - name: coam-https-redirectscheme
+      priority: 0
+      services:
+        - name: us-docs
+          port: 8000
+  tls:
+    secretName: coam-docs-acme-iirii.com-tls
+
+---
+#[Middleware][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# Redirect to https
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: coam-https-redirectscheme
+  namespace: coam-prod-docs-ns
+spec:
+  redirectScheme:
+    scheme: https
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: docs-deployment
+  namespace: coam-prod-docs-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-docs
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-docs
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.2
+      #使用主机网络 - 暴露端口:500,4500- 不推荐 -- 不能开启,已使用 `hostPort` 暴露主机端口,否则开启端口监听将导致集群崩溃!!!
+      #hostNetwork: true
+      containers:
+        - name: us-docs
+          #image: registry.ioros.com/coam/us.docs:0.0.2
+          image: registry.cn-hangzhou.aliyuncs.com/coam/as.docs:0.0.2
+          imagePullPolicy: Always
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32009"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: [ "/bin/sh", "-c" ]
+          args: [ "/app/docs/doc" ]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            - containerPort: 8000
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                #command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                command: [ "/bin/sh", "-c", "echo ..." ]
+          volumeMounts:
+            - mountPath: /etc/ssl/coam
+              name: etc-ssl-coam-volume
+            - mountPath: /app/docs/content
+              name: app-docs-content-volume
+            - mountPath: /app/docs/static
+              name: app-docs-static-volume
+            - mountPath: /app/docs/logs
+              name: app-docs-logs-volume
+            - name: var-log-volume
+              mountPath: /var/log
+      volumes:
+        - name: etc-ssl-coam-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ssl/coam
+            # this field is optional
+            type: Directory
+        - name: app-docs-content-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam/Run/docs/app/content
+            # this field is optional
+            type: Directory
+        - name: app-docs-static-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam/Run/docs/app/static
+            # this field is optional
+            type: Directory
+        - name: app-docs-logs-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam/Run/docs/app/logs
+            # this field is optional
+            type: Directory
+        - name: var-log-volume
+          hostPath:
+            # directory location on host
+            path: /var/log
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-docs
+  namespace: coam-prod-docs-ns
+  labels:
+    app: us-docs
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    # SSH 端口
+    - name: tcp-isp-docs-22222
+      protocol: TCP
+      port: 22000
+      targetPort: 22222
+      nodePort: 32009
+    - name: tcp-isp-docs-8000
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+      #nodePort: 8000
+  selector:
+    app: us-docs
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

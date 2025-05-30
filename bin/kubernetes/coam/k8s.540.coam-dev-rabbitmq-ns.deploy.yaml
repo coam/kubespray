@@ -1,0 +1,145 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-rabbitmq-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: rabbitmq-deployment
+  namespace: coam-dev-rabbitmq-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-rabbitmq
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-rabbitmq
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+        # 无效
+        #pod.beta.kubernetes.io/hostname: rabbit-rc1
+    spec:
+      # [在Kubernetes上搭建RabbitMQ Cluster](https://www.kubernetes.org.cn/4679.html)
+      hostname: rabbit-sn
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.1
+      containers:
+        - name: us-rabbitmq
+          image: registry.ioros.com/coam/us.rabbitmq:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32151"
+          # Just sleep forever
+          command: ["sleep"]
+          args: ["infinity"]
+          #command: ["/usr/local/rabbitmq-server/deps/rabbit/scripts/rabbitmq-server"]
+          #args: ["start"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 15672
+              protocol: TCP
+            - containerPort: 5672
+              protocol: TCP
+            - containerPort: 22222
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1015
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /home/rabbitmq
+              name: home-rabbitmq-volume
+            - mountPath: /etc/rabbitmq
+              name: etc-rabbitmq-volume
+            - mountPath: /var/lib/rabbitmq
+              name: var-lib-rabbitmq-volume
+            - mountPath: /var/log
+              name: var-log-volume
+      volumes:
+        - name: home-rabbitmq-volume
+          hostPath:
+            # directory location on host
+            path: /home/rabbitmq
+            # this field is optional
+            type: Directory
+        - name: etc-rabbitmq-volume
+          hostPath:
+            # directory location on host
+            path: /etc/rabbitmq
+            # this field is optional
+            type: Directory
+        - name: var-lib-rabbitmq-volume
+          hostPath:
+            # directory location on host
+            path: /var/lib/rabbitmq
+            # this field is optional
+            type: DirectoryOrCreate
+        - name: var-log-volume
+          hostPath:
+            # directory location on host
+            path: /var/log
+            # this field is optional
+            type: Directory
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-rabbitmq
+  namespace: coam-dev-rabbitmq-ns
+  labels:
+    app: us-rabbitmq
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    # 后台管理端口
+    - name: tcp-isp-rabbitmq-15672
+      protocol: TCP
+      port: 15672
+      targetPort: 15672
+      #nodePort: 15672
+    # 服务端口
+    - name: tcp-isp-rabbitmq-5672
+      protocol: TCP
+      port: 5672
+      targetPort: 5672
+      #nodePort: 5672
+    # SSH 服务端口
+    - name: tcp-isp-rabbitmq-22222
+      protocol: TCP
+      port: 22150
+      targetPort: 22222
+      nodePort: 32151
+  selector:
+    app: us-rabbitmq
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

@@ -1,0 +1,199 @@
+# [](https://www.magalix.com/blog/kafka-on-kubernetes-and-deploying-best-practice)
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: zookeeper-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zk-deploy
+  template:
+    metadata:
+      labels:
+        app: zk-deploy
+    spec:
+      nodeName: t.cs.3
+      containers:
+        - name: zookeeper-1
+          image: zookeeper:3.5.8
+          ports:
+            - containerPort: 2181
+          #env:
+          #  - name: ZOOKEEPER_ID
+          #    value: "1"
+          #  - name: ZOOKEEPER_SERVER_1
+          #    value: zk-svc
+          volumeMounts:
+            - mountPath: /data
+              name: data-home-data-zookeeper-data-volume
+            - mountPath: /datalog
+              name: data-home-data-zookeeper-datalog-volume
+      volumes:
+        - name: data-home-data-zookeeper-data-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/data/zookeeper/data
+            # this field is optional
+            type: DirectoryOrCreate
+        - name: data-home-data-zookeeper-datalog-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/data/zookeeper/datalog
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-svc
+  labels:
+    app: zk-svc
+spec:
+  ports:
+    - name: client
+      port: 2181
+      protocol: TCP
+    - name: follower
+      port: 2888
+      protocol: TCP
+    - name: leader
+      port: 3888
+      protocol: TCP
+  selector:
+    app: zk-deploy
+
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: kafka-broker0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-deploy
+      id: "0"
+  template:
+    metadata:
+      labels:
+        app: kafka-deploy
+        id: "0"
+    spec:
+      nodeName: t.cs.3
+      containers:
+        - name: kafka
+          image: wurstmeister/kafka:2.12-2.5.0
+          ports:
+            - containerPort: 9092
+          env:
+            - name: KAFKA_ADVERTISED_HOST_NAME
+              value: kafka-svc
+            - name: KAFKA_ADVERTISED_PORT
+              value: "9090"
+            #- name: HOSTNAME_COMMAND
+            #  value: "curl http://bot.whatismyipaddress.com"
+            #- name: KAFKA_ADVERTISED_LISTENERS
+            #  value: INSIDE://:9092,OUTSIDE://_{HOSTNAME_COMMAND}:29090
+            #- name: KAFKA_LISTENERS
+            #  value: INSIDE://:9092,OUTSIDE://:29090
+            #- name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+            #  value: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+            #- name: KAFKA_INTER_BROKER_LISTENER_NAME
+            #  value: INSIDE
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              value: zk-svc:2181
+            - name: JMX_PORT
+              value: "9999"
+            #- name: KAFKA_BROKER_ID
+            #  value: "0"
+            #- name: BROKER_ID_COMMAND
+            #  value: "hostname | awk -F'-' '{print $$2}'"
+            - name: KAFKA_CREATE_TOPICS
+              value: "brtc-vcs:1:1,Topic1:1:1,Topic2:1:1"
+          volumeMounts:
+            - mountPath: /kafka
+              name: data-home-data-kafka-volume
+            - mountPath: /var/run/docker.sock
+              name: var-run-docker-sock
+      volumes:
+        - name: data-home-data-kafka-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/data/kafka
+            # this field is optional
+            type: DirectoryOrCreate
+        - name: var-run-docker-sock
+          hostPath:
+            # directory location on host
+            path: /var/run/docker.sock
+            # this field is optional
+            type: File
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-svc
+  labels:
+    name: kafka-svc
+spec:
+  ports:
+    - port: 9092
+      targetPort: 9092
+      nodePort: 29092
+      name: kafka-port
+      protocol: TCP
+  selector:
+    app: kafka-deploy
+    id: "0"
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cmak-svc
+  labels:
+    name: cmak-svc
+spec:
+  ports:
+    - port: 9000
+      targetPort: 9000
+      nodePort: 29000
+      name: cmak-port
+      protocol: TCP
+  selector:
+    app: cmak-deploy
+  type: LoadBalancer
+
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: cmak-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cmak-deploy
+  template:
+    metadata:
+      labels:
+        app: cmak-deploy
+    spec:
+      containers:
+        - name: cmak
+          image: iunera/cmak:3.0.0.5
+          ports:
+            - containerPort: 9000
+          env:
+            - name: ZK_HOSTS
+              value: zk-svc:2181
+            - name: KAFKA_MANAGER_AUTH_ENABLED
+              value: "true"
+            - name: KAFKA_MANAGER_USERNAME
+              value: admin
+            - name: KAFKA_MANAGER_PASSWORD
+              value: admin

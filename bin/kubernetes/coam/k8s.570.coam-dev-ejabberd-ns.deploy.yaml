@@ -1,0 +1,233 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-ejabberd-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[ConfigMap][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: known-hosts-config
+  namespace: coam-dev-ejabberd-ns
+data:
+  known-hosts: |
+    |1|ywhAW+ewRbe7U0sIafazxt5Nv+A=|ZlVY9d5FubIds2uZ6Iu40EfhLl0= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCdnpZ/ty5WebkQhrdAYkpH29BQixITZz0F8IxFvGZIAoaWgNflBTQWZjCML+iiKqpAeEUr8gQH5jQrnnvsskfk=
+    |1|pnAESIHcQgwxc5iJeZVXFnBcBZY=|y0/i+lp6l13q2lCSpJYTVBYPG4E= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBDCgXQ0bfsyPzb9rJxSdjLQYjp7LMyUUoVTK3ydaX9mNteqicMOxMoCOVfNBuZSkeWnM4EfmolDST+kg4Mc4Gng=
+    |1|OSbL3wopSW1IqUMyL2vKsijUjiQ=|+5pjW4napD3HyGGbkW1OLPGHzPU= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBAirP/eRWtfKoRyY3T1GaN09tPBmsxnzsw97G/fj4np0McC1sj41Wn3poOm+nvAqr/5JqLxTmIZoxP+hdIY4szQ=
+    |1|XF4uL9bBGWCoqwYmajvy7AntKQU=|Ax5wxWeBqGKC001FdDEMyn11xHk= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBDXC1sWwmgtJ9XNi51x+YQr7y6ZXyo9PJ02Jy+uZbsqgJ4E5pe8Xc5kSKyxby4BD96hkGbQeZai7rFvs1AJceNA=
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: ejabberd-deployment
+  namespace: coam-dev-ejabberd-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-ejabberd
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-ejabberd
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.1
+      #使用主机网络 - 暴露端口:500,4500- 不推荐 -- 不能开启,已使用 `hostPort` 暴露主机端口,否则开启端口监听将导致集群崩溃!!!
+      #hostNetwork: true
+      containers:
+        - name: us-ejabberd
+          image: registry.ioros.com/coam/us.ejabberd:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32003"
+          # Just sleep forever
+          command: ["sleep"]
+          args: ["infinity"]
+          #command: ["/bin/sh", "-c"]
+          #args: ["echo 'os-coam-000' | sudo -S /usr/local/sbin/ejabberdctl foreground"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            # [Securing ejabberd](https://docs.ejabberd.im/admin/guide/security/)
+            - containerPort: 4560
+              protocol: TCP
+            - containerPort: 5222
+              protocol: TCP
+            - containerPort: 5269
+              protocol: TCP
+            - containerPort: 5280
+              protocol: TCP
+            - containerPort: 5349
+              protocol: TCP
+            - containerPort: 5443
+              protocol: TCP
+            - containerPort: 4369
+              protocol: TCP
+            - containerPort: 7777
+              protocol: TCP
+            #FIREWALL_WINDOW=31825-31826
+            - containerPort: 31825
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /etc/ejabberd
+              name: etc-ejabberd-volume
+            - mountPath: /etc/ssl/coam
+              name: etc-ssl-coam-volume
+            - name: known-hosts-config-volume
+              mountPath: /data/home/coam/.ssh/known_hosts
+              subPath: known_hosts
+            - name: data-home-coam-web-volume
+              mountPath: /data/home/coam/Web
+            - name: data-home-coam-ejabberd-modules-volume
+              mountPath: /data/home/coam/.ejabberd-modules
+            - name: var-log-ejabberd-volume
+              mountPath: /var/log/ejabberd
+      volumes:
+        - name: etc-ejabberd-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ejabberd
+            # this field is optional
+            type: Directory
+        - name: etc-ssl-coam-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ssl/coam
+            # this field is optional
+            type: Directory
+        - name: known-hosts-config-volume
+          configMap:
+            name: known-hosts-config
+            items:
+              - key: known-hosts
+                path: known_hosts
+        - name: data-home-coam-web-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam/Web
+            # this field is optional
+            type: Directory
+        - name: data-home-coam-ejabberd-modules-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam/.ejabberd-modules
+            # this field is optional
+            type: DirectoryOrCreate
+        - name: var-log-ejabberd-volume
+          hostPath:
+            # directory location on host
+            path: /var/log/ejabberd
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-ejabberd
+  namespace: coam-dev-ejabberd-ns
+  labels:
+    app: us-ejabberd
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    # SSH 端口
+    - name: tcp-isp-ejabberd-22222
+      protocol: TCP
+      port: 22000
+      targetPort: 22222
+      nodePort: 32003
+    # Ejabberd 服务端口
+    #FIREWALL_WINDOW=31825-31826
+    - name: tcp-isp-ejabberd-31825
+      protocol: TCP
+      port: 31825
+      targetPort: 31825
+      #nodePort: 31825
+    # Ejabberd 服务端口
+    - name: tcp-isp-ejabberd-4560
+      protocol: TCP
+      port: 4560
+      targetPort: 4560
+      #nodePort: 4560
+    # Ejabberd 服务端口
+    - name: tcp-isp-ejabberd-5222
+      protocol: TCP
+      port: 5222
+      targetPort: 5222
+      #nodePort: 5222
+    # Ejabberd 服务端口
+    - name: tcp-isp-ejabberd-5269
+      protocol: TCP
+      port: 5269
+      targetPort: 5269
+      #nodePort: 5269
+    # Ejabberd 服务端口
+    - name: tcp-isp-ejabberd-5280
+      protocol: TCP
+      port: 5280
+      targetPort: 5280
+      #nodePort: 5280
+    # Ejabberd 服务端口
+    - name: tcp-isp-ejabberd-5349
+      protocol: TCP
+      port: 5349
+      targetPort: 5349
+      #nodePort: 5349
+    # Ejabberd 服务端口
+    - name: tcp-isp-ejabberd-5443
+      protocol: TCP
+      port: 5443
+      targetPort: 5443
+      #nodePort: 5443
+    # Ejabberd 服务端口
+    - name: tcp-isp-ejabberd-4369
+      protocol: TCP
+      port: 4369
+      targetPort: 4369
+      #nodePort: 4369
+    # Ejabberd 服务端口
+    - name: tcp-isp-ejabberd-7777
+      protocol: TCP
+      port: 7777
+      targetPort: 7777
+      #nodePort: 7777
+  selector:
+    app: us-ejabberd
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

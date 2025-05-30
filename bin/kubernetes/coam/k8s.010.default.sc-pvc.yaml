@@ -1,0 +1,162 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: coam-ws-pv
+  labels:
+    app: nfs-coam-ws-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  nfs:
+    path: /data/home/coam/ws
+    server: 2.tcs.iirii.com
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: coam-deploy-pv
+  labels:
+    app: nfs-coam-deploy-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /data/home/coam/deploy
+    server: 2.tcs.iirii.com
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: coam-server-pv
+  labels:
+    app: nfs-coam-server-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /data/home/coam/Server
+    server: 2.tcs.iirii.com
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: coam-web-pv
+  labels:
+    app: nfs-coam-web-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /data/home/coam/Web
+    server: 2.tcs.iirii.com
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: coam-ws-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: nfs-coam-ws-pv
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: coam-deploy-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: nfs-coam-deploy-pv
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: coam-server-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: nfs-coam-server-pv
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: coam-web-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: nfs-coam-web-pv
+
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: test-storage-pod
+spec:
+  containers:
+    - name: test-storage-pod
+      image: busybox
+      imagePullPolicy: IfNotPresent
+      command: [ "sleep" ]
+      args: [ "infinity" ]
+      volumeMounts:
+        - name: coam-ws-pvc-vm
+          mountPath: "/data/coam/ws"
+        - name: coam-deploy-pvc-vm
+          mountPath: "/data/coam/deploy"
+        - name: coam-server-pvc-vm
+          mountPath: "/data/coam/server"
+        - name: coam-web-pvc-vm
+          mountPath: "/data/coam/web"
+  restartPolicy: "Never"
+  volumes:
+    - name: coam-ws-pvc-vm
+      persistentVolumeClaim:
+        claimName: coam-ws-pvc
+    - name: coam-deploy-pvc-vm
+      persistentVolumeClaim:
+        claimName: coam-deploy-pvc
+    - name: coam-server-pvc-vm
+      persistentVolumeClaim:
+        claimName: coam-server-pvc
+    - name: coam-web-pvc-vm
+      persistentVolumeClaim:
+        claimName: coam-web-pvc

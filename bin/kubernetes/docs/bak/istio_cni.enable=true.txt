@@ -1,0 +1,114 @@
+$ kubectl describe pod/sleep-v1-69ccc95dfb-dl8pk
+Name:               sleep-v1-69ccc95dfb-dl8pk
+Namespace:          default
+Priority:           0
+PriorityClassName:  <none>
+Node:               a.us.2/172.31.141.98
+Start Time:         Sat, 18 May 2019 14:57:38 +0800
+Labels:             app=sleep
+                    pod-template-hash=69ccc95dfb
+                    version=v1
+Annotations:        sidecar.istio.io/status:
+                      {"version":"69e971de74f6310db96f2586e21349293566045ef5d4277510d2b8c8b903e92e","initContainers":null,"containers":["istio-proxy"],"volumes"...
+Status:             Running
+IP:                 10.40.0.20
+Controlled By:      ReplicaSet/sleep-v1-69ccc95dfb
+Containers:
+  sleep:
+    Container ID:   docker://d5c14a369075589f40fda295a8a3297a260c1fd97fba0f6dd45e537eb7bfb04e
+    Image:          dustise/sleep
+    Image ID:       docker-pullable://dustise/sleep@sha256:da6b3fc7fd7f3f70e4fd291514eed75734ca78a3626826ac16ee38d76ed611ba
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Sat, 18 May 2019 14:57:44 +0800
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-tss99 (ro)
+  istio-proxy:
+    Container ID:  docker://afa567653eb77cdf07a6003efc2e15c2f685422f990e70b4d2cc36c2bf97735e
+    Image:         docker.io/istio/proxyv2:1.1.6
+    Image ID:      docker-pullable://istio/proxyv2@sha256:e7ee1ad38bd5b556ad0527ac691a9f647b66835960417b154c5d28b2ed9219cb
+    Port:          15090/TCP
+    Host Port:     0/TCP
+    Args:
+      proxy
+      sidecar
+      --domain
+      $(POD_NAMESPACE).svc.cluster.local
+      --configPath
+      /etc/istio/proxy
+      --binaryPath
+      /usr/local/bin/envoy
+      --serviceCluster
+      sleep.$(POD_NAMESPACE)
+      --drainDuration
+      45s
+      --parentShutdownDuration
+      1m0s
+      --discoveryAddress
+      istio-pilot.istio-system:15010
+      --zipkinAddress
+      zipkin.istio-system:9411
+      --connectTimeout
+      10s
+      --proxyAdminPort
+      15000
+      --concurrency
+      2
+      --controlPlaneAuthPolicy
+      NONE
+      --statusPort
+      15020
+      --applicationPorts
+
+    State:          Running
+      Started:      Sat, 18 May 2019 14:57:44 +0800
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     2
+      memory:  128Mi
+    Requests:
+      cpu:      100m
+      memory:   128Mi
+    Readiness:  http-get http://:15020/healthz/ready delay=1s timeout=1s period=2s #success=1 #failure=30
+    Environment:
+      POD_NAME:                      sleep-v1-69ccc95dfb-dl8pk (v1:metadata.name)
+      POD_NAMESPACE:                 default (v1:metadata.namespace)
+      INSTANCE_IP:                    (v1:status.podIP)
+      ISTIO_META_POD_NAME:           sleep-v1-69ccc95dfb-dl8pk (v1:metadata.name)
+      ISTIO_META_CONFIG_NAMESPACE:   default (v1:metadata.namespace)
+      ISTIO_META_INTERCEPTION_MODE:  REDIRECT
+      ISTIO_METAJSON_LABELS:         {"app":"sleep","pod-template-hash":"69ccc95dfb","version":"v1"}
+
+    Mounts:
+      /etc/certs/ from istio-certs (ro)
+      /etc/istio/proxy from istio-envoy (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-tss99 (ro)
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             True
+  ContainersReady   True
+  PodScheduled      True
+Volumes:
+  default-token-tss99:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-tss99
+    Optional:    false
+  istio-envoy:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     Memory
+    SizeLimit:  <unset>
+  istio-certs:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  istio.default
+    Optional:    true
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:          <none>

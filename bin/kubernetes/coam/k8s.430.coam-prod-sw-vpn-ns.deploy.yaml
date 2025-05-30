@@ -1,0 +1,255 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#[Reference](https://github.com/kubernetes/examples/tree/master/staging/storage/redis)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-prod-sw-vpn-ns
+  labels:
+    istio-injection: enabled
+
+# 手动创建 configmap: `vpn-config`
+#sudo kubectl create configmap vpn-config -n coam-prod-sw-vpn-ns --from-file=/usr/local/etc/strongswan.d/charon-logging.conf --from-file=/usr/local/etc/ipsec.conf --from-file=/usr/local/etc/ipsec.secrets --from-file=/usr/local/etc/strongswan.conf
+
+#---
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  name: vpn-config
+#  namespace: coam-prod-sw-vpn-ns
+#data:
+#  charon-logging.conf: /usr/local/etc/strongswan.d/charon-logging.conf
+#  ipsec.conf: /usr/local/etc/ipsec.conf
+#  ipsec.secrets: /usr/local/etc/ipsec.secrets
+#  strongswan.conf: /usr/local/etc/strongswan.conf
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: DaemonSet
+metadata:
+  name: sw-vpn-deployment
+  namespace: coam-prod-sw-vpn-ns
+  labels:
+    app: us-sw-vpn
+    version: v-0.0.2
+spec:
+  selector:
+    matchLabels:
+      app: us-sw-vpn
+      version: v-0.0.2
+  template:
+    metadata:
+      labels:
+        app: us-sw-vpn
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.1
+      #使用主机网络 - 暴露端口:500,4500- 不推荐 -- 不能开启,已使用 `hostPort` 暴露主机端口,否则开启端口监听将导致集群崩溃!!!
+      #hostNetwork: false
+      containers:
+        - name: us-sw-vpn
+          image: registry.ioros.com/coam/us.sw_vpn:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32211"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: ["/bin/sh", "-c"]
+          args: ["echo 'os-sw-vpn-000' | sudo -S /usr/local/sbin/ipsec start --nofork > /var/log/vpn/strongswan.log"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 500
+              #暴露集群内主机端口
+              #hostPort: 500
+              protocol: UDP
+            - containerPort: 4500
+              #暴露集群内主机端口
+              #hostPort: 4500
+              protocol: UDP
+            - containerPort: 22222
+              protocol: TCP
+              #暴露集群内主机端口
+              #hostPort: 32211
+          #[kubernetes使用securityContext和sysctl](http://bazingafeng.com/2017/12/23/kubernetes-uses-the-security-context-and-sysctl/)
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1021
+            privileged: true
+          lifecycle:
+            # [How to run command after initialization](https://stackoverflow.com/questions/44140593/how-to-run-command-after-initialization)
+            postStart:
+              exec:
+                #command: ["/bin/sh", "-c", "echo 'os-sw-vpn-000' | sudo -S sh -c 'iptables-restore < /etc/iptables/docker.sw_vpn.rules.v4'"]
+                command: ["/bin/sh", "-c", "echo 'os-sw-vpn-000' | sudo -S sh -c 'iptables-restore < /etc/iptables/docker.sw_vpn.rules.v4' && /usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                # start ssh service...
+                #command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /home/sw_vpn
+              name: home-sw-vpn-volume
+            - mountPath: /etc/iptables
+              name: etc-iptables-volume
+            - mountPath: /etc/ssl/coam
+              name: etc-ssl-coam-volume
+            #- mountPath: /etc
+            #  name: etc-volume
+            - name: vpn-config-volume
+              mountPath: /etc/strongswan/strongswan.d/charon-logging.conf
+              subPath: etc/strongswan/strongswan.d/charon-logging.conf
+            - name: vpn-config-volume
+              mountPath: /etc/strongswan/ipsec.conf
+              subPath: etc/strongswan/ipsec.conf
+            - name: vpn-config-volume
+              mountPath: /etc/strongswan/ipsec.secrets
+              subPath: etc/strongswan/ipsec.secrets
+            - name: vpn-config-volume
+              mountPath: /etc/strongswan/strongswan.conf
+              subPath: etc/strongswan/strongswan.conf
+            #- name: vpn-config-volume
+            #  mountPath: /etc/strongswan/ipsec.d/certs/server.cert.pem
+            #  subPath: etc/strongswan/ipsec.d/certs/server.cert.pem
+            #- name: vpn-config-volume
+            #  mountPath: /etc/strongswan/ipsec.d/private/private.key
+            #  subPath: etc/strongswan/ipsec.d/private/private.key
+            - mountPath: /var/log/vpn
+              name: var-log-vpn-volume
+      volumes:
+        - name: home-sw-vpn-volume
+          hostPath:
+            # directory location on host
+            path: /home/sw_vpn
+            # this field is optional
+            type: Directory
+        - name: etc-iptables-volume
+          hostPath:
+            # directory location on host
+            path: /etc/iptables
+            # this field is optional
+            type: Directory
+        - name: etc-ssl-coam-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ssl/coam
+            # this field is optional
+            type: Directory
+        #- name: etc-volume
+        #  hostPath:
+        #    # directory location on host
+        #    path: /etc
+        #    # this field is optional
+        #    type: Directory
+        - name: vpn-config-volume
+          configMap:
+            name: vpn-config
+            items:
+              - key: etc_strongswan_strongswan.d_charon-logging.conf
+                path: etc/strongswan/strongswan.d/charon-logging.conf
+              - key: etc_strongswan_ipsec.conf
+                path: etc/strongswan/ipsec.conf
+              - key: etc_strongswan_ipsec.secrets
+                path: etc/strongswan/ipsec.secrets
+              - key: etc_strongswan_strongswan.conf
+                path: etc/strongswan/strongswan.conf
+              #- key: etc_strongswan_ipsec.d_certs_server.cert.pem
+              #  path: etc/strongswan/ipsec.d/certs/server.cert.pem
+              #- key: etc_strongswan_ipsec.d_private_private.key
+              #  path: etc/strongswan/ipsec.d/private/private.key
+        - name: var-log-vpn-volume
+          hostPath:
+            # directory location on host
+            path: /var/log/vpn
+            # this field is optional
+            type: DirectoryOrCreate
+
+#---
+##[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+##[Kubernetes中暴露外部IP地址来访问集群中的应用](https://www.kubernetes.org.cn/2377.html)
+## 暴露集群内主机方法,此服务禁用 - 使用 `hostPort` 暴露集群内主机端口[500,4500]...
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: us-sw-vpn
+#  namespace: coam-prod-sw-vpn-ns
+#spec:
+#  type: LoadBalancer
+#  #externalIPs:
+#  #  - 172.31.141.97
+#  #  - 172.31.141.98
+#  #externalTrafficPolicy: Cluster
+#  ports:
+#    - name: udp-isp-sw-vpn-500
+#      nodePort: 30500
+#      port: 500
+#      protocol: UDP
+#      targetPort: 500
+#    - name: udp-isp-sw-vpn-4500
+#      nodePort: 30450
+#      port: 4500
+#      protocol: UDP
+#      targetPort: 4500
+#    #- name: tcp-isp-sw-vpn-22222
+#    #  protocol: TCP
+#    #  port: 22210
+#    #  targetPort: 22222
+#    #  nodePort: 32211
+#  selector:
+#    app: us-sw-vpn
+#  sessionAffinity: None
+
+# 同一个Service不能包含两种协议
+# cannot create an external load balancer with mix protocols
+# [Allow for mixed UDP/TCP ports on LoadBalancer Services](https://github.com/kubernetes/kubernetes/pull/64471)
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-sw-vpn-tcp
+  namespace: coam-prod-sw-vpn-ns
+  #annotations:
+  #  metallb.universe.tf/allow-shared-ip: "true"
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: tcp-isp-sw-vpn-22222
+      protocol: TCP
+      port: 22210
+      targetPort: 22222
+      nodePort: 32211
+  selector:
+    app: us-sw-vpn
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-sw-vpn-udp
+  namespace: coam-prod-sw-vpn-ns
+  #annotations:
+  #  metallb.universe.tf/allow-shared-ip: "true"
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: udp-isp-sw-vpn-500
+      #nodePort: 500
+      port: 500
+      protocol: UDP
+      targetPort: 500
+    - name: udp-isp-sw-vpn-4500
+      #nodePort: 4500
+      port: 4500
+      protocol: UDP
+      targetPort: 4500
+  selector:
+    app: us-sw-vpn
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

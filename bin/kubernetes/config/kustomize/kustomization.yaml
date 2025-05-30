@@ -1,0 +1,6 @@
+bases:
+- ./overlays/dev
+- ./overlays/staging
+- ./overlays/production
+
+namePrefix: cluster-a-

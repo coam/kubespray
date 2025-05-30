@@ -1,0 +1,153 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: immt-dev-lib-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[IngressRoute][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: immt-pyios.com-rules
+  namespace: immt-dev-lib-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`immt_bc_lib.pyios.com`) && PathPrefix(`/`)
+      middlewares:
+        - name: immt-https-redirectscheme
+      priority: 0
+      services:
+        - name: us-immt-lib
+          port: 8011
+  tls:
+    secretName: immt-lib-acme-pyios.com-tls
+
+---
+#[Middleware][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# Redirect to https
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: immt-https-redirectscheme
+  namespace: immt-dev-lib-ns
+spec:
+  redirectScheme:
+    scheme: https
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: immt-lib-deployment
+  namespace: immt-dev-lib-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-immt-lib
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  template:
+    metadata:
+      labels:
+        app: us-immt-lib
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.1
+      #使用主机网络 - 暴露端口:500,4500- 不推荐 -- 不能开启,已使用 `hostPort` 暴露主机端口,否则开启端口监听将导致集群崩溃!!!
+      #hostNetwork: true
+      containers:
+        - name: us-immt-lib
+          image: registry.ioros.com/coam/us.immt:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32014"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: ["/bin/sh", "-c"]
+          args: ["node /data/home/coam/Web/Work/immt_lib/index.js"]
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            - containerPort: 8011
+              protocol: TCP
+          #securityContext:
+          #  runAsNonRoot: true
+          #  runAsUser: 1000
+          #  privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                #command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /etc/ssl/coam
+              name: etc-ssl-coam-volume
+            - mountPath: /data/home/coam
+              name: data-home-coam-volume
+            - name: var-log-volume
+              mountPath: /var/log
+      volumes:
+        - name: etc-ssl-coam-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ssl/coam
+            # this field is optional
+            type: Directory
+        - name: data-home-coam-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam
+            # this field is optional
+            type: Directory
+        - name: var-log-volume
+          hostPath:
+            # directory location on host
+            path: /var/log
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-immt-lib
+  namespace: immt-dev-lib-ns
+  labels:
+    app: us-immt-lib
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  ports:
+    # SSH 端口
+    - name: tcp-isp-lib-22222
+      protocol: TCP
+      port: 22000
+      targetPort: 22222
+      nodePort: 32014
+    - name: tcp-isp-lib-8011
+      protocol: TCP
+      port: 8011
+      targetPort: 8011
+      nodePort: 8011
+  selector:
+    app: us-immt-lib
+    version: v-0.0.2
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

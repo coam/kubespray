@@ -1,0 +1,104 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#[Reference](https://github.com/kubernetes/examples/tree/master/staging/storage/redis)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-nas-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: nas-deployment
+  namespace: coam-dev-nas-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-nas
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  template:
+    metadata:
+      labels:
+        app: us-nas
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      # 直接通过节点名称调度到指定节点
+      nodeName: t.cs.3
+      containers:
+        - name: us-nas
+          image: registry.ioros.com/coam/us.node:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32040"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          # 工作目录
+          workingDir: /data/home/coam/Run/AutoTest
+          #command: [ "npm" ]
+          #args: [ "start" ]
+          command: [ "/bin/sh", "-c" ]
+          args: [ "node /data/home/coam/Run/AutoTest/run.js" ]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+            - containerPort: 22222
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                #command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                command: [ "/bin/sh", "-c", "echo ..." ]
+          volumeMounts:
+            - mountPath: /data/home/coam
+              name: data-home-coam-volume
+      volumes:
+        - name: data-home-coam-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam
+            # this field is optional
+            type: Directory
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-nas
+  namespace: coam-dev-nas-ns
+  labels:
+    app: us-nas
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  ports:
+    - name: mongo-isp-ma-3000
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+      #nodePort: 8003
+    - name: tcp-isp-ma-22222
+      protocol: TCP
+      port: 22030
+      targetPort: 22222
+      nodePort: 32040
+  selector:
+    app: us-nas
+    version: v-0.0.2
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
