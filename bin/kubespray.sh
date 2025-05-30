@@ -56,6 +56,11 @@ reconfig)
   caller sed -i "s/^# kubectl_localhost: false/kubectl_localhost: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
   caller sed -i "s/^kube_network_plugin: calico/kube_network_plugin: cilium/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
+    # fix cilium error: cp: cannot create regular file '/hostbin/cilium-mount': Permission denied
+    # chown -R root:root /opt/cni/bin
+  # [](https://github.com/cilium/cilium/issues/23838#issuecomment-2191213296)
+  caller sed -i "s/^kube_owner: kube/kube_owner: root/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
+
   # MetalLB [kube-proxy in IPVS mode breaks MetalLB IPs #153](https://github.com/metallb/metallb/issues/153#issuecomment-518651132)
   caller sed -i "s/^kube_proxy_strict_arp: false/kube_proxy_strict_arp: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
