@@ -54,6 +54,11 @@ scale)
 remove)
   caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root remove-node.yml -e node=server-3
   ;;
+down)
+    caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.cluster.local
+    caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/config.cluster.local
+    caller cat ~/.kube/config.cluster.local
+  ;;
 kubesphere)
   # KubeSphere prometheus pv
   caller ssh -o "StrictHostKeyChecking=no" root@1.cos.iirii.com 'mkdir -p /mnt/disks/ssd1'
