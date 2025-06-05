@@ -41,7 +41,7 @@ init)
     caller pip3 install -r requirements.txt
   ;;
 reconfig)
-  #caller rm -rf inventory/mycluster
+  caller rm -rf inventory/mycluster
   #caller cp -rfp inventory/sample inventory/mycluster
   #caller rsync -H -avP --delete --exclude=conf/{cros_headers.conf,log_format.conf,proxy_headers.conf,ssl/,luafile/} --filter='protect conf/ssl' inventory/sample inventory/mycluster
   caller rsync -H -avP --delete --filter='P hosts.yaml' inventory/sample/. inventory/mycluster

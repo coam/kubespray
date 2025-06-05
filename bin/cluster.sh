@@ -22,6 +22,11 @@ help)
 test)
   echo "nothing to do: take it easy..."
   ;;
+reviews)
+    #caller rm -rf inventory/mycluster
+    caller rsync -H -avP --delete --filter='P hosts.yaml' --filter='P vars.yaml' inventory/sample/. inventory/mycluster
+    caller ansible-playbook -i inventory/mycluster/hosts.yaml --tags debug -u root --become --become-user=root cluster.yml --extra-vars "@inventory/mycluster/vars.yaml"
+    ;;
 reset)
   caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root -e reset_confirmation=yes reset.yml
   ;;
