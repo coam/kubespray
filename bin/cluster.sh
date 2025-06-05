@@ -28,24 +28,6 @@ reset)
 deploy)
   caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root cluster.yml
   ;;
-config)
-  # OpenEBS
-  caller helm repo add openebs https://openebs.github.io/charts
-  caller helm repo update
-  caller helm install openebs --namespace openebs openebs/openebs --create-namespace
-
-  # set default sc
-  #kubectl patch storageclass local-storage -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-  caller kubectl patch storageclass openebs-hostpath -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-
-  # Open ArgoCD Service
-  #[](https://medium.com/@andrea.grillo96/change-kubernetes-service-type-loadbalancer-or-nodeport-488a61ca5736)
-  #kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "ClusterIP"}}'
-  caller kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
-  #kubectl create service hello-svc --tcp=80:80 --type NodePort --node-port 30088 -o yaml --dry-run > hello-svc.yaml
-
-  caller kubectl get sc
-  ;;
 scale)
   caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root scale.yml -v --flush-cache
   # resolve control-plane being Ready,SchedulingDisabled
@@ -58,19 +40,6 @@ down)
     caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.cluster.local
     caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/config.cluster.local
     caller cat ~/.kube/config.cluster.local
-  ;;
-kubesphere)
-  # KubeSphere prometheus pv
-  caller ssh -o "StrictHostKeyChecking=no" root@1.cos.iirii.com 'mkdir -p /mnt/disks/ssd1'
-  caller ssh -o "StrictHostKeyChecking=no" root@2.cos.iirii.com 'mkdir -p /mnt/disks/ssd1'
-
-  caller kubectl apply -f manifests/prometheus-pv.yaml
-  #kubectl apply -f manifests/redis-pv.yaml
-
-  caller kubectl apply -f https://github.com/kubesphere/ks-installer/releases/download/v3.4.0/kubesphere-installer.yaml
-  echo "等待 CRD 创建(sleep 5: ensure CRDs are installed first)..."
-  sleep 5
-  caller kubectl apply -f https://github.com/kubesphere/ks-installer/releases/download/v3.4.0/cluster-configuration.yaml
   ;;
 other)
   caller kubectl krew install ctx

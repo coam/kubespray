@@ -1,5 +1,7 @@
 # MetalLB 集群部署指南
 
+[裸机 Kubernetes 集群负载均衡器: MetalLB 简明教程](https://www.lixueduan.com/posts/cloudnative/01-metallb/)
+
 ## 部署准备
 
 [k8s系列06-负载均衡器之MatelLB](https://tinychen.com/20220519-k8s-06-loadbalancer-metallb/)
