@@ -1,0 +1,126 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-harbor-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[StorageClass][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#[Kubernetes: Can't delete PersistentVolumeClaim (pvc)](https://stackoverflow.com/questions/51358856/kubernetes-cant-delete-persistentvolumeclaim-pvc)
+#kubectl patch pv harbor-pv -p '{"metadata":{"finalizers": []}}' --type=merge
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard
+  namespace: coam-dev-harbor-ns
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+
+---
+#[PersistentVolume][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: harbor-pv
+  namespace: coam-dev-harbor-ns
+  labels:
+    k8s-app: harbor-pv
+    type: local
+spec:
+  storageClassName: manual
+  #storageClassName: standard
+  capacity:
+    storage: 50Gi
+  volumeMode: Filesystem
+  persistentVolumeReclaimPolicy: Retain
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/home/data/harbor/mirror
+
+---
+#[PersistentVolumeClaim][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: harbor-pvc
+  namespace: coam-dev-harbor-ns
+spec:
+  storageClassName: manual
+  #storageClassName: standard
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  selector:
+    matchLabels:
+      k8s-app: harbor-pv
+
+---
+#[IngressRoute][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#apiVersion: traefik.containo.us/v1alpha1
+#kind: IngressRoute
+#metadata:
+#  annotations:
+#    kubernetes.io/ingress.class: traefik
+#  name: coam-dev-harbor-ns-ioros.com-rules
+#  namespace: coam-dev-harbor-ns
+#spec:
+#  entryPoints:
+#    - websecure
+#  routes:
+#    - kind: Rule
+#      match: Host(`notary.ioros.com`) && PathPrefix(`/`)
+#      middlewares: []
+#      priority: 0
+#      services:
+#        - name: corn-harbor-registry
+#          port: 5000
+#    - kind: Rule
+#      match: Host(`registry.ioros.com`) && PathPrefix(`/`)
+#      middlewares: []
+#      priority: 0
+#      services:
+#        - name: corn-harbor-portal
+#          port: 80
+#    - kind: Rule
+#      match: Host(`registry.ioros.com`) && PathPrefix(`/api/`)
+#      middlewares: []
+#      priority: 0
+#      services:
+#        - name: corn-harbor-core
+#          port: 80
+#    - kind: Rule
+#      match: Host(`registry.ioros.com`) && PathPrefix(`/service/`)
+#      middlewares: []
+#      priority: 0
+#      services:
+#        - name: corn-harbor-core
+#          port: 80
+#    - kind: Rule
+#      match: Host(`registry.ioros.com`) && PathPrefix(`/v2/`)
+#      middlewares: []
+#      priority: 0
+#      services:
+#        - name: corn-harbor-core
+#          port: 80
+#    - kind: Rule
+#      match: Host(`registry.ioros.com`) && PathPrefix(`/chartrepo/`)
+#      middlewares: []
+#      priority: 0
+#      services:
+#        - name: corn-harbor-core
+#          port: 80
+#    - kind: Rule
+#      match: Host(`registry.ioros.com`) && PathPrefix(`/c/`)
+#      middlewares: []
+#      priority: 0
+#      services:
+#        - name: corn-harbor-core
+#          port: 80
+#  tls:
+#    secretName: coam-harbor-acme-ioros.com-tls
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

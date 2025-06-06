@@ -1,0 +1,52 @@
+# [From](https://k8s.io/examples/application/deployment.yaml)
+# 泛域名
+# [Nginx Ingress Controller - Secure default backend and/or support for wildcards? #8](https://github.com/kubernetes/ingress-nginx/issues/8)
+# [Ingress: Allow for multiple hosts](https://github.com/kubernetes/kubernetes/issues/43633)
+
+# [Kubernestes Cross Namespace Ingress](https://gist.github.com/hossambarakat/d54277918b254702186496b5af7a0075)
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: coam-ingress-rules
+  namespace: coam-prod-docs-ns
+  labels:
+    app: k8s-coam
+    version: v-0.0.1
+    component: k8s-coam-frontend
+    name: k8s-coam-edge-router
+  annotations:
+    # 自定义 [traefik] 配置.........................................................................................................................................
+    kubernetes.io/ingress.class: "traefik"
+spec:
+  rules:
+
+    # [www.iirii.com]
+    - host: www.iirii.com
+      http: &www_iirii_com_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-docs
+              servicePort: 5000
+
+  tls:
+    - secretName: coam-docs-acme-iirii.com-tls
+      hosts:
+        - iirii.com
+        - www.iirii.com
+        - wp.iirii.com
+        - git.iirii.com
+        - got.iirii.com
+        - 1.tcs.iirii.com
+        - sw.1.tcs.iirii.com
+        - sc.1.tcs.iirii.com
+        - sr.1.tcs.iirii.com
+        - sh.1.tcs.iirii.com
+        - so.1.tcs.iirii.com
+        - se.1.tcs.iirii.com
+        - ww.1.tcs.iirii.com
+        - wc.1.tcs.iirii.com
+        - wr.1.tcs.iirii.com
+        - wh.1.tcs.iirii.com
+        - wo.1.tcs.iirii.com
+        - we.1.tcs.iirii.com

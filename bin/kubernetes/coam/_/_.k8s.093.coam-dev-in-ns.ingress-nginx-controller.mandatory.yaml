@@ -1,0 +1,338 @@
+#[From](https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ingress-nginx-controller-serviceaccount
+  namespace: coam-dev-nginx-ns
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: ingress-nginx-controller-clusterrole
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - endpoints
+      - nodes
+      - pods
+      - secrets
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "extensions"
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - "extensions"
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: ingress-nginx-controller-clusterrolebinding
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ingress-nginx-controller-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: ingress-nginx-controller-serviceaccount
+    namespace: coam-dev-nginx-ns
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: ingress-nginx-controller-role
+  namespace: coam-dev-nginx-ns
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - pods
+      - secrets
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      # Defaults to "<election-id>-<ingress-class>"
+      # Here: "<ingress-controller-leader>-<nginx>"
+      # This has to be adapted if you change either parameter
+      # when launching the nginx-ingress-controller.
+      - "ingress-controller-leader-nginx"
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - get
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: ingress-nginx-controller-rolebinding
+  namespace: coam-dev-nginx-ns
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ingress-nginx-controller-role
+subjects:
+  - kind: ServiceAccount
+    name: ingress-nginx-controller-serviceaccount
+    namespace: coam-dev-nginx-ns
+
+# [ConfigMap] 配置文件
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ingress-nginx-controller-configmap
+  namespace: coam-dev-nginx-ns
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ingress-nginx-controller-tcp-services-configmap
+  namespace: coam-dev-nginx-ns
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+#data:
+#  22322: "coam-gitlab/us-gitlab:22"
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ingress-nginx-controller-udp-services-configmap
+  namespace: coam-dev-nginx-ns
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+#data:
+#  500: "coam-sw-vpn/us-sw-vpn:500"
+#  4500: "coam-sw-vpn/us-sw-vpn:4500"
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingress-nginx-controller
+  namespace: coam-dev-nginx-ns
+  labels:
+    app.kubernetes.io/name: coam-dev-nginx-ns
+    app.kubernetes.io/part-of: coam-dev-nginx-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: coam-dev-nginx-ns
+      app.kubernetes.io/part-of: coam-dev-nginx-ns
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: coam-dev-nginx-ns
+        app.kubernetes.io/part-of: coam-dev-nginx-ns
+      annotations:
+        prometheus.io/port: "10254"
+        prometheus.io/scrape: "true"
+    spec:
+      hostNetwork: true
+      # 直接通过节点名称调度到指定节点 - 指定主节点,否则域名只能解析到指定的节点网站才能打开
+      nodeName: t.cs.1
+      serviceAccountName: ingress-nginx-controller-serviceaccount
+      # [允许 Pod 在污点 `Taints` 主节点部署][在 Kubernetes 上部署 Nginx Ingress Cntroller](https://blog.hlyue.com/2018/05/12/deploy-nginx-ingress-controller-on-kubernetes/)
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: ingress-nginx-controller
+          image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.23.0
+          args:
+            - /nginx-ingress-controller
+            - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller-configmap
+            - --tcp-services-configmap=$(POD_NAMESPACE)/ingress-nginx-controller-tcp-services-configmap
+            - --udp-services-configmap=$(POD_NAMESPACE)/ingress-nginx-controller-udp-services-configmap
+            - --publish-service=$(POD_NAMESPACE)/coam-in-controller-service
+            - --annotations-prefix=nginx.ingress.kubernetes.io
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+            # www-data -> 33
+            runAsUser: 33
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+
+---
+#[解决错误][err services "ingress-nginx" not found]
+#[Services "ingress-nginx" not found](https://github.com/kubernetes/ingress-nginx/issues/2599)
+apiVersion: v1
+kind: Service
+metadata:
+  name: coam-in-controller-service
+  namespace: coam-dev-nginx-ns
+spec:
+  type: ClusterIP
+  ports:
+    - name: http-isp-none-80
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: https-isp-none-443
+      port: 443
+      targetPort: 443
+      protocol: TCP
+  selector:
+    app: in-none
+    version: v-0.0.0
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: us-gitlab-in
+#  namespace: coam-dev-nginx-ns
+#  labels:
+#    app.kubernetes.io/name: coam-in
+#    app.kubernetes.io/part-of: coam-in
+#spec:
+#  #type: NodePort
+#  type: LoadBalancer
+#  ports:
+#    - name: proxied-tcp-22322
+#      port: 22322
+#      targetPort: 22322
+#      protocol: TCP
+#  selector:
+#    app.kubernetes.io/name: coam-in
+#    app.kubernetes.io/part-of: coam-in
+
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: us-sw-vpn
+#  namespace: coam-dev-nginx-ns
+#  labels:
+#    app.kubernetes.io/name: coam-in
+#    app.kubernetes.io/part-of: coam-in
+#spec:
+#  #type: NodePort
+#  type: LoadBalancer
+#  ports:
+#    - name: proxied-udp-500
+#      port: 500
+#      targetPort: 500
+#      protocol: UDP
+#    - name: proxied-udp-4500
+#      port: 4500
+#      targetPort: 4500
+#      protocol: UDP
+#  selector:
+#    app.kubernetes.io/name: coam-in
+#    app.kubernetes.io/part-of: coam-in

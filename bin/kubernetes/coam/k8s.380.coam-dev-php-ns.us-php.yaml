@@ -1,0 +1,217 @@
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: php-deployment
+  namespace: coam-dev-php-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-php
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-php
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.2
+      containers:
+        - name: us-php
+          #image: registry.ioros.com/coam/us.php:0.0.2
+          image: registry.cn-hangzhou.aliyuncs.com/coam/us.php:20.11.11
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32041"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: [ "/usr/sbin/php-fpm7.3" ]
+          args: [ ]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            - containerPort: 9000
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1004
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: [ "/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config" ]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /home/www-data
+              name: home-www-data-volume
+            - mountPath: /etc/php/7.3
+              name: etc-php-volume
+            - mountPath: /var/log
+              name: var-log-php-volume
+            - mountPath: /data/home/coam
+              name: data-home-coam-volume
+      volumes:
+        - name: home-www-data-volume
+          hostPath:
+            # directory location on host
+            path: /home/www-data
+            # this field is optional
+            type: Directory
+        - name: etc-php-volume
+          hostPath:
+            # directory location on host
+            path: /etc/php/7.3
+            # this field is optional
+            type: Directory
+        - name: data-home-coam-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam
+            # this field is optional
+            type: Directory
+        - name: var-log-php-volume
+          hostPath:
+            # directory location on host
+            path: /var/log
+            # this field is optional
+            type: Directory
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-php
+  namespace: coam-dev-php-ns
+  labels:
+    app: us-php
+    version: v-0.0.2
+  annotations:
+    service.kubernetes.io/loadbalance-id: "lb-1z1stdk5"
+    service.kubernetes.io/qcloud-loadbalancer-internal-subnetid: "subnet-2gu3li2l"
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: tcp-isp-php-22222
+      protocol: TCP
+      port: 22040
+      targetPort: 22222
+      nodePort: 32041
+    - name: tcp-isp-php-9000
+      protocol: TCP
+      port: 9000
+      targetPort: 9000
+      #nodePort: 9000
+  selector:
+    app: us-php
+    version: v-0.0.2
+  sessionAffinity: None
+
+---
+#[CronJob][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: us-cron
+  namespace: coam-dev-php-ns
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 30
+  successfulJobsHistoryLimit: 10
+  failedJobsHistoryLimit: 10
+  jobTemplate:
+    metadata:
+      labels:
+        app: us-php-cron-artisan-schedule-run
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 10 分钟...
+      activeDeadlineSeconds: 30
+      backoffLimit: 1
+      template:
+        spec:
+          # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+          nodeName: t.cs.2
+          containers:
+            - name: us-php-cron-artisan-schedule-run
+              image: registry.ioros.com/coam/us.php:0.0.2
+              imagePullPolicy: IfNotPresent
+              # Just sleep forever
+              #command: ["sleep"]
+              #args: ["infinity"]
+              #/usr/bin/php /data/home/coam/Web/Work/hs_api/artisan schedule:run
+              command: [ "/usr/bin/php", "/data/home/coam/Web/Work/hs_api/artisan", "schedule:run" ]
+              #[Running 'php artisan schedule:run' for Laravel in Kubernetes CronJobs](https://www.jeffgeerling.com/blog/2019/running-php-artisan-schedulerun-laravel-kubernetes-cronjobs)
+              #[Deploy a Laravel Application to Kubernetes using Gitlab CI](https://itnext.io/deploy-a-laravel-application-to-kubernetes-using-gitlab-ci-2538a6bbd373)
+              #[](https://learnku.com/laravel/t/2199/docker-container-configuration-plan-task-crontab-daocloud-docker-laravel-5)
+              #command: ["/bin/sh", "-c", "/usr/bin/php /data/home/coam/Web/Work/hs_api/artisan schedule:run >> /dev/null 2>&1 && sleep infinity"]
+              #command: ['sh', '-c', 'echo Job Pod is Running ; sleep 5']
+              #command: ["/bin/bash", "-c"]
+              #args: ["/usr/bin/php /data/home/coam/Web/Work/hs_api/artisan schedule:run >> /dev/null 2>&1 && sleep infinity"]
+              resources:
+                limits:
+                  cpu: 200m
+                  memory: 200M
+                requests:
+                  cpu: 100m
+                  memory: 100M
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1004
+                privileged: true
+              volumeMounts:
+                - mountPath: /home/www-data
+                  name: home-www-data-volume
+                - mountPath: /etc/php/7.3
+                  name: etc-php-volume
+                - mountPath: /var/log
+                  name: var-log-php-volume
+                - mountPath: /data/home/coam
+                  name: data-home-coam-volume
+          restartPolicy: OnFailure
+          volumes:
+            - name: home-www-data-volume
+              hostPath:
+                # directory location on host
+                path: /home/www-data
+                # this field is optional
+                type: Directory
+            - name: etc-php-volume
+              hostPath:
+                # directory location on host
+                path: /etc/php/7.3
+                # this field is optional
+                type: Directory
+            - name: data-home-coam-volume
+              hostPath:
+                # directory location on host
+                path: /data/home/coam
+                # this field is optional
+                type: Directory
+            - name: var-log-php-volume
+              hostPath:
+                # directory location on host
+                path: /var/log
+                # this field is optional
+                type: Directory
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

@@ -1,0 +1,132 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#[Reference](https://github.com/kubernetes/examples/tree/master/staging/storage/redis)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-mongodb-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: mongodb-deployment
+  namespace: coam-dev-mongodb-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-mongodb
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-mongodb
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      # 直接通过节点名称调度到指定节点
+      nodeName: t.cs.2
+      containers:
+        - name: us-mongodb
+          #image: registry.ioros.com/coam/us.mongodb:0.0.2
+          image: registry.cn-hangzhou.aliyuncs.com/coam/us.mongodb:20.11.11
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32031"
+          # Just sleep forever
+          command: ["sleep"]
+          args: ["infinity"]
+          #command: ["/usr/bin/mongod"]
+          #args: ["-f", "/etc/mongodb/mongod.conf"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 27017
+              protocol: TCP
+            - containerPort: 22222
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1003
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /home/mongodb
+              name: home-mongodb-volume
+            - mountPath: /etc/mongodb
+              name: etc-mongodb-volume
+            - mountPath: /data/home/data/mongodb
+              name: data-home-data-mongodb-volume
+            - mountPath: /var/log/mongodb
+              name: var-log-mongodb-volume
+      volumes:
+        - name: home-mongodb-volume
+          hostPath:
+            # directory location on host
+            path: /home/mongodb
+            # this field is optional
+            type: Directory
+        - name: etc-mongodb-volume
+          hostPath:
+            # directory location on host
+            path: /etc/mongodb
+            # this field is optional
+            type: Directory
+        - name: data-home-data-mongodb-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/data/mongodb
+            # this field is optional
+            type: Directory
+        - name: var-log-mongodb-volume
+          hostPath:
+            # directory location on host
+            path: /var/log/mongodb
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-mongodb
+  namespace: coam-dev-mongodb-ns
+  labels:
+    app: us-mongodb
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: mongo-isp-mongodb-27017
+      protocol: TCP
+      port: 27017
+      targetPort: 27017
+      #nodePort: 27017
+    - name: tcp-isp-mongodb-22222
+      protocol: TCP
+      port: 22030
+      targetPort: 22222
+      nodePort: 32031
+  selector:
+    app: us-mongodb
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

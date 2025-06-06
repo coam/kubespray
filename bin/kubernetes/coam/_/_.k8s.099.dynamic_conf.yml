@@ -1,0 +1,19 @@
+http:
+  routers:
+    Router-1:
+      rule: "Host(`nocs.cn`)"
+      service: service-id
+      # will terminate the TLS request
+      tls:
+        options: myTLSOptions
+
+tls:
+  certificates:
+    - certFile: /etc/ssl/coam/domains/nocs.cn/fullchain.crt
+      keyFile: /etc/ssl/coam/domains/nocs.cn/private.key
+  options:
+    myTLSOptions:
+      minVersion: VersionTLS13
+      cipherSuites:
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_RSA_WITH_AES_256_GCM_SHA384

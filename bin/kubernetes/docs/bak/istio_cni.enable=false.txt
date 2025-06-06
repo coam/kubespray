@@ -1,0 +1,165 @@
+$ kubectl describe pod/sleep-v1-69ccc95dfb-l8qpb
+Name:               sleep-v1-69ccc95dfb-l8qpb
+Namespace:          default
+Priority:           0
+PriorityClassName:  <none>
+Node:               a.us.1/172.31.141.97
+Start Time:         Sat, 18 May 2019 18:27:10 +0800
+Labels:             app=sleep
+                    pod-template-hash=69ccc95dfb
+                    version=v1
+Annotations:        sidecar.istio.io/status:
+                      {"version":"f5ccf91fad7f2d056f204a075aff1128670ca6997fecdeccaf7a2af6a498558c","initContainers":["istio-init"],"containers":["istio-proxy"]...
+Status:             Running
+IP:                 10.32.0.18
+Controlled By:      ReplicaSet/sleep-v1-69ccc95dfb
+Init Containers:
+  istio-init:
+    Container ID:  docker://b3fa56d8157bad4cdc622c4b90a37c4687b85073854344c56415be9e6687a20c
+    Image:         docker.io/istio/proxy_init:1.1.7
+    Image ID:      docker-pullable://istio/proxy_init@sha256:9056ebb0757be99006ad568331e11bee99ae0daaa4459e7c15dfaf0e0cba2f48
+    Port:          <none>
+    Host Port:     <none>
+    Args:
+      -p
+      15001
+      -u
+      1337
+      -m
+      REDIRECT
+      -i
+      *
+      -x
+
+      -b
+
+      -d
+      15020
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Sat, 18 May 2019 18:27:21 +0800
+      Finished:     Sat, 18 May 2019 18:27:21 +0800
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     100m
+      memory:  50Mi
+    Requests:
+      cpu:        10m
+      memory:     10Mi
+    Environment:  <none>
+    Mounts:       <none>
+Containers:
+  sleep:
+    Container ID:   docker://63e350ec85606562b74395bb218a1a6b560e46712b99275353783bb866f3230b
+    Image:          dustise/sleep
+    Image ID:       docker-pullable://dustise/sleep@sha256:da6b3fc7fd7f3f70e4fd291514eed75734ca78a3626826ac16ee38d76ed611ba
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Sat, 18 May 2019 18:27:26 +0800
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-tss99 (ro)
+  istio-proxy:
+    Container ID:  docker://1e082489773bd071edc0a49ce4d73fa09ef12750de19a5fea328c5658a4f661c
+    Image:         docker.io/istio/proxyv2:1.1.7
+    Image ID:      docker-pullable://istio/proxyv2@sha256:e6f039115c7d5ef9c8f6b049866fbf9b6f5e2255d3a733bb8756b36927749822
+    Port:          15090/TCP
+    Host Port:     0/TCP
+    Args:
+      proxy
+      sidecar
+      --domain
+      $(POD_NAMESPACE).svc.cluster.local
+      --configPath
+      /etc/istio/proxy
+      --binaryPath
+      /usr/local/bin/envoy
+      --serviceCluster
+      sleep.$(POD_NAMESPACE)
+      --drainDuration
+      45s
+      --parentShutdownDuration
+      1m0s
+      --discoveryAddress
+      istio-pilot.istio-system:15010
+      --zipkinAddress
+      zipkin.istio-system:9411
+      --connectTimeout
+      10s
+      --proxyAdminPort
+      15000
+      --concurrency
+      2
+      --controlPlaneAuthPolicy
+      NONE
+      --statusPort
+      15020
+      --applicationPorts
+
+    State:          Running
+      Started:      Sat, 18 May 2019 18:27:27 +0800
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     2
+      memory:  1Gi
+    Requests:
+      cpu:      100m
+      memory:   128Mi
+    Readiness:  http-get http://:15020/healthz/ready delay=1s timeout=1s period=2s #success=1 #failure=30
+    Environment:
+      POD_NAME:                      sleep-v1-69ccc95dfb-l8qpb (v1:metadata.name)
+      POD_NAMESPACE:                 default (v1:metadata.namespace)
+      INSTANCE_IP:                    (v1:status.podIP)
+      ISTIO_META_POD_NAME:           sleep-v1-69ccc95dfb-l8qpb (v1:metadata.name)
+      ISTIO_META_CONFIG_NAMESPACE:   default (v1:metadata.namespace)
+      ISTIO_META_INTERCEPTION_MODE:  REDIRECT
+      ISTIO_METAJSON_LABELS:         {"app":"sleep","pod-template-hash":"69ccc95dfb","version":"v1"}
+
+    Mounts:
+      /etc/certs/ from istio-certs (ro)
+      /etc/istio/proxy from istio-envoy (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-tss99 (ro)
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             True
+  ContainersReady   True
+  PodScheduled      True
+Volumes:
+  default-token-tss99:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-tss99
+    Optional:    false
+  istio-envoy:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     Memory
+    SizeLimit:  <unset>
+  istio-certs:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  istio.default
+    Optional:    true
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  59s   default-scheduler  Successfully assigned default/sleep-v1-69ccc95dfb-l8qpb to a.us.1
+  Normal  Pulling    56s   kubelet, a.us.1    Pulling image "docker.io/istio/proxy_init:1.1.7"
+  Normal  Pulled     49s   kubelet, a.us.1    Successfully pulled image "docker.io/istio/proxy_init:1.1.7"
+  Normal  Created    49s   kubelet, a.us.1    Created container istio-init
+  Normal  Started    48s   kubelet, a.us.1    Started container istio-init
+  Normal  Pulling    47s   kubelet, a.us.1    Pulling image "dustise/sleep"
+  Normal  Pulled     44s   kubelet, a.us.1    Successfully pulled image "dustise/sleep"
+  Normal  Created    43s   kubelet, a.us.1    Created container sleep
+  Normal  Started    43s   kubelet, a.us.1    Started container sleep
+  Normal  Pulled     43s   kubelet, a.us.1    Container image "docker.io/istio/proxyv2:1.1.7" already present on machine
+  Normal  Created    43s   kubelet, a.us.1    Created container istio-proxy
+  Normal  Started    42s   kubelet, a.us.1    Started container istio-proxy

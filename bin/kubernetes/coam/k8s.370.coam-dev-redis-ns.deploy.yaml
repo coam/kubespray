@@ -1,0 +1,145 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#[Reference](https://github.com/kubernetes/examples/tree/master/staging/storage/redis)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-redis-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: coam-dev-redis-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-redis
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-redis
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      #nodeName: t.cs.1
+      containers:
+        - name: us-redis
+          #image: registry.ioros.com/coam/us.redis:0.0.2
+          image: registry.cn-hangzhou.aliyuncs.com/coam/us.redis:20.11.11
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32051"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: ["/usr/local/bin/redis-server"]
+          args: ["/etc/redis/6379.conf"]
+          #env:
+          #  - name: MESSAGE
+          #    value: "hello world"
+          #command: ["/bin/sh", "-c"]
+          #args: ["/bin/echo \"${MESSAGE}\";/usr/local/bin/redis-server /etc/redis/6379.conf && sleep infinity"]
+          #args: [" ; /usr/local/bin/redis-server /etc/redis/6379.conf && /bin/bash"]
+          # [How can I keep a container running on Kubernetes?](https://stackoverflow.com/questions/31870222/how-can-i-keep-a-container-running-on-kubernetes)
+          # Just spin & wait forever
+          #command: [ "/bin/bash", "-c", "--" ]
+          #args: [ "while true; do sleep 30; done;" ]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 6379
+              protocol: TCP
+            - containerPort: 22222
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1005
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /home/redis
+              name: home-redis-volume
+            - mountPath: /etc/redis
+              name: etc-redis-volume
+            - mountPath: /data/home/data/redis
+              name: data-home-data-redis-volume
+            - mountPath: /var/log/redis
+              name: var-log-redis-volume
+      volumes:
+        - name: home-redis-volume
+          hostPath:
+            # directory location on host
+            path: /home/redis
+            # this field is optional
+            type: Directory
+        - name: etc-redis-volume
+          hostPath:
+            # directory location on host
+            path: /etc/redis
+            # this field is optional
+            type: Directory
+        - name: data-home-data-redis-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/data/redis
+            # this field is optional
+            # [MountVolume.SetUp failed for volume “mongo” : hostPath type check failed: /mongo/data is not a directory](https://stackoverflow.com/questions/48927312/mountvolume-setup-failed-for-volume-mongo-hostpath-type-check-failed-mongo)
+            #type: Directory
+            type: DirectoryOrCreate
+        - name: var-log-redis-volume
+          hostPath:
+            # directory location on host
+            path: /var/log/redis
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-redis
+  namespace: coam-dev-redis-ns
+  labels:
+    app: us-redis
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: redis-isp-redis-6379
+      protocol: TCP
+      port: 6379
+      targetPort: 6379
+      nodePort: 6379
+    - name: tcp-isp-redis-22222
+      protocol: TCP
+      port: 22050
+      targetPort: 22222
+      nodePort: 32051
+  selector:
+    app: us-redis
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
