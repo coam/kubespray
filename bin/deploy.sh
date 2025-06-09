@@ -2,8 +2,8 @@
 set -xe
 
 sc_dir="$(
-  cd "$(dirname "$0")" >/dev/null 2>&1 || exit
-  pwd -P
+    cd "$(dirname "$0")" >/dev/null 2>&1 || exit
+    pwd -P
 )"
 
 rs_path=${sc_dir/kubespray*/kubespray}
@@ -15,13 +15,13 @@ ebc_debug "解析命令参数> deploy.sh $Case"
 
 case "$Case" in
 help)
-  ebc_debug "说明: deploy.sh 命令快捷参数"
-  ebc_debug "用法: deploy.sh <Case>"
-  ebc_debug "示例: deploy.sh issue"
-  ;;
+    ebc_debug "说明: deploy.sh 命令快捷参数"
+    ebc_debug "用法: deploy.sh <Case>"
+    ebc_debug "示例: deploy.sh issue"
+    ;;
 test)
-  echo "nothing to do: take it easy..."
-  ;;
+    echo "nothing to do: take it easy..."
+    ;;
 metrics)
     caller kubectl delete deployment metrics-server -n kube-system || true
 
@@ -36,10 +36,9 @@ metrics)
     #helm install --set 'args={--kubelet-insecure-tls}' --namespace kube-system metrics stable/metrics-server
 
     caller kubectl top pods -A
-  ;;
+    ;;
 *)
-  echo "[参数命令不合法]case: $Case [test,cluster,k8s,kubesphere,other]"
-  exit 1
-  ;;
+    echo "[参数命令不合法]case: $Case [test,cluster,k8s,kubesphere,other]"
+    exit 1
+    ;;
 esac
-

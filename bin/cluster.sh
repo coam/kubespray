@@ -23,11 +23,11 @@ test)
     echo "nothing to do: take it easy..."
     ;;
 reviews)
-    #caller rm -rf inventory/mycluster
+    # caller rm -rf inventory/mycluster
     caller rsync -H -avP --delete --filter='P hosts.yaml' --filter='P vars.yaml' inventory/sample/. inventory/mycluster
-    #    caller ansible-playbook -i inventory/mycluster/hosts.yaml --tags debug -u root --become --become-user=root cluster.yml --extra-vars "@inventory/mycluster/vars.yaml" --check
-    #    caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root cluster.yml --extra-vars "@inventory/mycluster/vars.yaml" --check
-    #    caller ansible-inventory -i inventory/mycluster/hosts.yaml cluster.yml --list --yaml --output _/mycluster/v0.yaml
+    # caller ansible-playbook -i inventory/mycluster/hosts.yaml --tags debug -u root --become --become-user=root cluster.yml --extra-vars "@inventory/mycluster/vars.yaml" --check
+    # caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root cluster.yml --extra-vars "@inventory/mycluster/vars.yaml" --check
+    # caller ansible-inventory -i inventory/mycluster/hosts.yaml cluster.yml --list --yaml --output _/mycluster/v0.yaml
     # caller ansible-inventory -i inventory/mycluster/hosts.yaml cluster.yml --extra-vars '@inventory/mycluster/vars.yaml' --list --yaml --output _/mycluster/v1.yaml
     caller ansible-playbook -i inventory/mycluster/hosts.yaml cluster.yml --extra-vars '@inventory/mycluster/vars.yaml' --check -v
     ;;
