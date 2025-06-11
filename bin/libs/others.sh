@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-sc_dir=$(
-    cd "$(dirname "${BASH_SOURCE[0]}")" || exit
-    pwd -P
-)
-
-rs_path=${sc_dir/kubespray*/kubespray}
-source $rs_path/bin/libs/headers.sh
+source "${BASH_SOURCE%/*}/headers.sh"
 
 function parse_iirii_server() {
     Server=$1

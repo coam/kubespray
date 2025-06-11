@@ -90,7 +90,7 @@ reconfig)
     caller yq -i '.cert_manager_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
     # caller sed -i "s/^metallb_enabled: false/metallb_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
-    # caller yq -i '.metallb_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
+    caller yq -i '.metallb_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
     # caller sed -i "s/^argocd_enabled: false/argocd_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
     caller yq -i '.argocd_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
@@ -103,13 +103,13 @@ reconfig)
 
     #  caller sed -i "s/^krew_enabled: false/krew_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
-    # caller sed -i "s/^# http_proxy:.*/http_proxy: \"http:\/\/zyfa:112233@0.wh.zsc.iirii.com:8810\"/g" inventory/mycluster/group_vars/all/all.yml
+    # caller sed -i "s/^# http_proxy:.*/http_proxy: \"http:\/\/chess:ceaqaz000@proxy.zsc.iirii.com:7890\"/g" inventory/mycluster/group_vars/all/all.yml
     caller sed -i "s/^# http_proxy:\(.*\)/http_proxy:\1/g" inventory/mycluster/group_vars/all/all.yml
-    caller yq -i '.http_proxy = "http://zyfa:112233@0.wh.zsc.iirii.com:8810"' inventory/mycluster/group_vars/all/all.yml
+    caller yq -i '.http_proxy = "http://chess:ceaqaz000@proxy.zsc.iirii.com:7890"' inventory/mycluster/group_vars/all/all.yml
 
-    # caller sed -i "s/^# https_proxy:.*/https_proxy: \"http:\/\/zyfa:112233@0.wh.zsc.iirii.com:8810\"/g" inventory/mycluster/group_vars/all/all.yml
+    # caller sed -i "s/^# https_proxy:.*/https_proxy: \"http:\/\/chess:ceaqaz000@proxy.zsc.iirii.com:7890\"/g" inventory/mycluster/group_vars/all/all.yml
     caller sed -i "s/^# https_proxy:\(.*\)/https_proxy:\1/g" inventory/mycluster/group_vars/all/all.yml
-    caller yq -i '.https_proxy = "http://zyfa:112233@0.wh.zsc.iirii.com:8810"' inventory/mycluster/group_vars/all/all.yml
+    caller yq -i '.https_proxy = "http://chess:ceaqaz000@proxy.zsc.iirii.com:7890"' inventory/mycluster/group_vars/all/all.yml
     ;;
 configs)
     for server in root@15.zsc.iirii.com:22 root@16.zsc.iirii.com:22 root@17.zsc.iirii.com:22 root@18.zsc.iirii.com:22; do
