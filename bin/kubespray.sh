@@ -72,6 +72,17 @@ reconfig)
         # [](https://github.com/cilium/cilium/issues/23838#issuecomment-2191213296)
         # caller sed -i "s/^kube_owner: kube/kube_owner: root/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
         caller yq -i '.kube_owner = "root"' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
+    }
+
+    # 以下是针对 MetalLB 网络插件的配置
+    {
+        # caller sed -i "s/^metallb_enabled: false/metallb_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
+        caller yq -i '.metallb_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
+
+        #caller sed -i "s/^# metallb_config:\(.*\)/metallb_config:\1/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
+        #sed -i '/^#   address_pools:/,/^#   layer3:/ {s/^#//}' inventory/mycluster/group_vars/k8s_cluster/addons.yml
+        #caller sed -i '/^#   address_pools:/,/^#   layer3:/ { /^#   layer3:/! s/^#// }' inventory/mycluster/group_vars/k8s_cluster/addons.yml
+        caller sed -i '/^# metallb_config:/,/^#   layer3:/ { /^#   layer3:/! s/^# // }' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
         # MetalLB [kube-proxy in IPVS mode breaks MetalLB IPs #153](https://github.com/metallb/metallb/issues/153#issuecomment-518651132)
         # caller sed -i "s/^kube_proxy_strict_arp: false/kube_proxy_strict_arp: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
@@ -88,9 +99,6 @@ reconfig)
 
     # caller sed -i "s/^cert_manager_enabled: false/cert_manager_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
     caller yq -i '.cert_manager_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
-
-    # caller sed -i "s/^metallb_enabled: false/metallb_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
-    caller yq -i '.metallb_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
     # caller sed -i "s/^argocd_enabled: false/argocd_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
     caller yq -i '.argocd_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
