@@ -1,0 +1,118 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#[Reference](https://github.com/kubernetes/examples/tree/master/staging/storage/redis)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-ma-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: ma-deployment
+  namespace: coam-dev-ma-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-ma
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  template:
+    metadata:
+      labels:
+        app: us-ma
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      # 直接通过节点名称调度到指定节点
+      #nodeName: t.cs.1
+      containers:
+        - name: us-ma
+          image: registry.ioros.com/coam/us.node.ma:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32039"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          # 工作目录
+          workingDir: /opt/data/admin/mongo
+          command: ["npm"]
+          args: ["start"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+            - containerPort: 22222
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                #command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /data/home/data
+              name: data-home-data-volume
+            - mountPath: /opt/data/admin/mongo/data
+              name: opt-data-admin-mongo-data-volume
+            - mountPath: /opt/data/admin/mongo/backups
+              name: opt-data-admin-mongo-backups-volume
+      volumes:
+        - name: data-home-data-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/data
+            # this field is optional
+            type: Directory
+        - name: opt-data-admin-mongo-data-volume
+          hostPath:
+            # directory location on host
+            path: /opt/data/admin/mongo/data
+            # this field is optional
+            type: DirectoryOrCreate
+        - name: opt-data-admin-mongo-backups-volume
+          hostPath:
+            # directory location on host
+            path: /opt/data/admin/mongo/backups
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-ma
+  namespace: coam-dev-ma-ns
+  labels:
+    app: us-ma
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  ports:
+    - name: mongo-isp-ma-3000
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+      #nodePort: 8003
+    - name: tcp-isp-ma-22222
+      protocol: TCP
+      port: 22030
+      targetPort: 22222
+      nodePort: 32039
+  selector:
+    app: us-ma
+    version: v-0.0.2
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

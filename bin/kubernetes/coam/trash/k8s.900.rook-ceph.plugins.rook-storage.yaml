@@ -1,0 +1,31 @@
+# [From](https://blog.yumc.pw/posts/K8s-Install-With-KubeAdm-On-CentOs)
+# operator会监听并创建一个pool，执行完后界面上也能看到对应的pool
+apiVersion: ceph.rook.io/v1
+kind: CephBlockPool
+metadata:
+  name: replicapool
+  namespace: rook-ceph
+spec:
+  failureDomain: host
+  replicated:
+    size: 1
+---
+
+# 这里创建一个storage class, 在pvc中指定这个storage class即可实现动态创建PV
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rook-ceph-block
+provisioner: ceph.rook.io/block
+parameters:
+  blockPool: replicapool
+  # The value of "clusterNamespace" MUST be the same as the one in which your rook cluster exist
+  clusterNamespace: rook-ceph
+  # Specify the filesystem type of the volume. If not specified, it will use `ext4`.
+  #fstype: xfs
+  # [$ for i in mkfs.bfs mkfs.cramfs mkfs.ext2 mkfs.ext3 mkfs.ext4 mkfs.minix mkfs.xfs; do which $i; done;]
+  fstype: ext4
+# Optional, default reclaimPolicy is "Delete". Other options are: "Retain", "Recycle" as documented in https://kubernetes.io/docs/concepts/storage/storage-classes/
+# storageclass回收参数 -- rook删除PVC PV依然存在
+#reclaimPolicy: Retain
+reclaimPolicy: Delete

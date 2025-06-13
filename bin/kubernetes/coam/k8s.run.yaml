@@ -1,0 +1,100 @@
+#[PersistentVolume][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kafka-0-pv
+  labels:
+    app: nfs-kafka-0-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /data/home/coam/deploy/kafka/0
+    server: 2.tcs.iirii.com
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kafka-1-pv
+  labels:
+    app: nfs-kafka-1-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /data/home/coam/deploy/kafka/1
+    server: 2.tcs.iirii.com
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kafka-2-pv
+  labels:
+    app: nfs-kafka-2-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /data/home/coam/deploy/kafka/2
+    server: 2.tcs.iirii.com
+
+#---
+#kind: PersistentVolumeClaim
+#apiVersion: v1
+#metadata:
+#  name: kafka-pvc
+#  namespace: kafka
+#spec:
+#  accessModes:
+#    - ReadWriteOnce
+#  resources:
+#    requests:
+#      storage: 1Gi
+#  selector:
+#    matchLabels:
+#      app: nfs-kafka-pv
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: testclient
+  namespace: default
+spec:
+  containers:
+    - name: kafka
+      image: confluentinc/cp-kafka:5.0.1
+      command:
+        - sh
+        - -c
+        - "exec tail -f /dev/null"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-us
+spec:
+  type: NodePort
+  #type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    # SSH 端口
+    - name: tcp-isp-docs-9092
+      protocol: TCP
+      port: 9092
+      targetPort: 9092
+      nodePort: 29292
+  selector:
+    statefulset.kubernetes.io/pod-name: kafka-0
+  sessionAffinity: None

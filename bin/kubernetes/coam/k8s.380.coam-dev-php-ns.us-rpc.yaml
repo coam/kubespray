@@ -1,0 +1,187 @@
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: rpc-deployment
+  namespace: coam-dev-php-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-rpc
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-rpc
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.2
+      #nodeSelector:
+      #  kubernetes.io/hostname: "t.cs.1"
+      containers:
+        - name: us-rpc
+          image: registry.ioros.com/coam/us.php:0.0.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32043"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: ["/usr/bin/php"]
+          args: ["/data/home/coam/Web/Work/ekatong_services/start.php", "start"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            - containerPort: 9190
+              protocol: TCP
+            - containerPort: 9197
+              protocol: TCP
+            - containerPort: 9236
+              protocol: TCP
+            - containerPort: 9614
+              protocol: TCP
+            - containerPort: 9615
+              protocol: TCP
+            - containerPort: 9616
+              protocol: TCP
+            - containerPort: 9617
+              protocol: TCP
+            - containerPort: 9618
+              protocol: TCP
+            - containerPort: 9619
+              protocol: TCP
+            - containerPort: 9620
+              protocol: TCP
+            - containerPort: 9621
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1004
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /home/www-data
+              name: home-www-data-volume
+            - mountPath: /etc/php/7.2
+              name: etc-php-volume
+            - mountPath: /var/log
+              name: var-log-php-volume
+            - mountPath: /data/home/coam
+              name: data-home-coam-volume
+      volumes:
+        - name: home-www-data-volume
+          hostPath:
+            # directory location on host
+            path: /home/www-data
+            # this field is optional
+            type: Directory
+        - name: etc-php-volume
+          hostPath:
+            # directory location on host
+            path: /etc/php/7.2
+            # this field is optional
+            type: Directory
+        - name: data-home-coam-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam
+            # this field is optional
+            type: Directory
+        - name: var-log-php-volume
+          hostPath:
+            # directory location on host
+            path: /var/log
+            # this field is optional
+            type: Directory
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-rpc
+  namespace: coam-dev-php-ns
+  labels:
+    app: us-rpc
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: tcp-isp-rpc-22222
+      protocol: TCP
+      port: 22040
+      targetPort: 22222
+      nodePort: 32043
+    - name: tcp-isp-rpc-9190
+      protocol: TCP
+      port: 9190
+      targetPort: 9190
+    - name: tcp-isp-rpc-9104
+      protocol: TCP
+      port: 9104
+      targetPort: 9104
+    - name: tcp-isp-rpc-9197
+      protocol: TCP
+      port: 9197
+      targetPort: 9197
+    - name: tcp-isp-rpc-9236
+      protocol: TCP
+      port: 9236
+      targetPort: 9236
+    - name: tcp-isp-rpc-9614
+      protocol: TCP
+      port: 9614
+      targetPort: 9614
+    - name: tcp-isp-rpc-9615
+      protocol: TCP
+      port: 9615
+      targetPort: 9615
+    - name: tcp-isp-rpc-9616
+      protocol: TCP
+      port: 9616
+      targetPort: 9616
+    - name: tcp-isp-rpc-9617
+      protocol: TCP
+      port: 9617
+      targetPort: 9617
+    - name: tcp-isp-rpc-9618
+      protocol: TCP
+      port: 9618
+      targetPort: 9618
+    - name: tcp-isp-rpc-9619
+      protocol: TCP
+      port: 9619
+      targetPort: 9619
+    - name: tcp-isp-rpc-9620
+      protocol: TCP
+      port: 9620
+      targetPort: 9620
+    - name: tcp-isp-rpc-9621
+      protocol: TCP
+      port: 9621
+      targetPort: 9621
+      #nodePort: 9621
+  selector:
+    app: us-rpc
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

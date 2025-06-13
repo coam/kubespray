@@ -1,0 +1,134 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#[Reference](https://github.com/kubernetes/examples/tree/master/staging/storage/redis)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-prod-gitlab-ns
+  labels:
+    istio-injection: enabled
+
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+---
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: gitlab-deployment
+  namespace: coam-prod-gitlab-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-gitlab
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  template:
+    metadata:
+      labels:
+        app: us-gitlab
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.2
+      containers:
+        - name: us-gitlab
+          image: registry.ioros.com/coam/us.gitlab:0.0.1
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "30222"
+          # Just sleep forever
+          command: ["sleep"]
+          args: ["infinity"]
+          #command: ["/bin/sh", "-c"]
+          #args: ["echo 'os-git-000' | sudo -S /opt/gitlab/embedded/bin/runsvdir-start"]
+          #[kubernetes使用securityContext和sysctl](http://bazingafeng.com/2017/12/23/kubernetes-uses-the-security-context-and-sysctl/)
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1009
+            privileged: true
+            #capabilities:
+            #  add:
+            #    - IPC_LOCK
+            #    - SYS_RESOURCE
+          lifecycle:
+            # [How to run command after initialization](https://stackoverflow.com/questions/44140593/how-to-run-command-after-initialization)
+            postStart:
+              exec:
+                #更改配置或首次部署时需要预执行命令: gitlab-ctl reconfigure,否则更改配置不会生效!!!
+                # when update /etc/gitlab/gitlab.rb
+                #command: ["/bin/sh", "-c", "service ssh start && gitlab-ctl reconfigure && gitlab-ctl start"]
+                #command: ["/bin/sh", "-c", "service ssh start && gitlab-ctl start"]
+                #command: ["/bin/sh", "-c", "echo 'os-git-000' | sudo -S gitlab-ctl start"]
+                #command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo 'os-git-000' | sudo -S gitlab-ctl start && /usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                command: ["/bin/sh", "-c", "echo ..."]
+          ports:
+            - containerPort: 843
+              protocol: TCP
+            - containerPort: 22222
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /etc/gitlab
+              name: etc-gitlab-volume
+            - mountPath: /etc/ssl/coam
+              name: etc-ssl-coam-volume
+            - mountPath: /var/opt/gitlab
+              name: var-opt-gitlab-volume
+            - mountPath: /var/log/gitlab
+              name: var-log-gitlab-volume
+      volumes:
+        - name: etc-gitlab-volume
+          hostPath:
+            # directory location on host
+            path: /etc/gitlab
+            # this field is optional
+            type: Directory
+        - name: etc-ssl-coam-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ssl/coam
+            # this field is optional
+            type: Directory
+        - name: var-opt-gitlab-volume
+          hostPath:
+            # directory location on host
+            path: /var/opt/gitlab
+            # this field is optional
+            type: Directory
+        - name: var-log-gitlab-volume
+          hostPath:
+            # directory location on host
+            path: /var/log/gitlab
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-gitlab
+  namespace: coam-prod-gitlab-ns
+  labels:
+    app: us-gitlab
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  ports:
+    - name: tcp-isp-gitlab-843
+      protocol: TCP
+      port: 843
+      targetPort: 843
+      nodePort: 30843
+    - name: tcp-isp-gitlab-22222
+      protocol: TCP
+      port: 22008
+      targetPort: 22222
+      nodePort: 30222
+  selector:
+    app: us-gitlab
+    version: v-0.0.2
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

@@ -1,0 +1,531 @@
+# [From](https://k8s.io/examples/application/deployment.yaml)
+# 泛域名
+# [Nginx Ingress Controller - Secure default backend and/or support for wildcards? #8](https://github.com/kubernetes/ingress-nginx/issues/8)
+# [Ingress: Allow for multiple hosts](https://github.com/kubernetes/kubernetes/issues/43633)
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: coam-ingress-rules
+  namespace: coam-dev-nginx-ns
+  labels:
+    app: k8s-coam
+    version: v-0.0.1
+    component: k8s-coam-frontend
+    name: k8s-coam-edge-router
+  annotations:
+    # 自定义 [traefik] 配置.........................................................................................................................................
+    kubernetes.io/ingress.class: "traefik"
+
+    ##@-前端配置
+    #@-可以根据uri进行转发
+    #@traefik.frontend.rule.type: "PathPrefixStrip"
+    #@-配置前端的权重，值越高则优先匹配
+    #@traefik.frontend.priority: "3"
+    #@-关闭传入Hearder
+    #@traefik.frontend.passHostHeader: "false"
+    #@-使用https协议
+    #@traefik.protocol: "https"
+    #@-同时支持http和https
+    #@traefik.frontend.entryPoints: "http,https"
+
+    ##@-后端配置
+    #@-后端Service的负载均衡策略，目前traefik支持的策略包括：wrr（加权轮训调度算法）和drr（动态加权循环调度算法）
+    #@traefik.backend.loadbalancer.method: "drr"
+    #@-是否开启负载均衡器的session亲和性
+    #@traefik.backend.loadbalancer.stickiness: "true"
+    #@-手动配置后端session亲和性的cookie名称
+    #@traefik.backend.loadbalancer.stickiness.cookieName: "NAME"
+
+    ##@-健康检查
+    #@- traefik的监控检查路径
+    #@traefik.backend.healthcheck.path: "/health"
+    #@-健康检查的时间间隔
+    #@traefik.backend.healthcheck.interval: 5s
+
+    #@-监测某台节点上的服务错误率达到50%时，自动下线该节点。
+    #@traefik.backend.circuitbreaker: "NetworkErrorRatio() > 0.5"
+    #@-监测某台节点上服务的延时大于50ms时，自动下线该节点。
+    #@traefik.backend.circuitbreaker: "LatencyAtQuantileMS(50.0) > 50"
+    #@-监测某台节点上服务返回状态码为[500-600]在[0-600]区间占比超过50%时，自动下线该节点。
+    #@traefik.backend.circuitbreaker: "ResponseCodeRatio(500, 600, 0, 600) > 0.5"
+
+    #@-参数配置
+    #@traefik.ingress.kubernetes.io/frontend-entry-points: "http,https"
+    #@traefik.ingress.kubernetes.io/priority: "3"
+    #@ingress.kubernetes.io/ssl-redirect: "true"
+    #@ingress.kubernetes.io/protocol: https
+    #@traefik.ingress.kubernetes.io/redirect-entry-point: https
+    #@traefik.frontend.redirect.permanent: "true"
+    #@traefik.frontend.redirect.regex: ^https://www.hello.example.de/(.*)
+    #@traefik.frontend.redirect.replacement: https://hello.example.de/$1
+
+    # 自定义 [Nginx-Controller] 配置.........................................................................................................................................
+    #kubernetes.io/ingress.class: "nginx"
+    #@nginx.ingress.kubernetes.io/rewrite-target: /
+    #@禁用默认强制跳转到 https
+    #nginx.ingress.kubernetes.io/ssl-redirect: "false"
+
+    # 通用配置.........................................................................................................................................
+    #@ingress.kubernetes.io/ingress.allow-http: "false"
+    #@ingress.kubernetes.io/proxy-body-size: 20M
+    #@ingress.kubernetes.io/secure-backends: "true"
+    #@-http认证模式，此处为basic模式
+    #ingress.kubernetes.io/auth-type: basic
+    #@-basic认证的对应的username和password，这里对应的traefik所在kubernetes命名空间里的secrets
+    #ingress.kubernetes.io/auth-secret: mysecret
+    #@-配置访问白名单，支持ipv4和ipv6
+    #@ingress.kubernetes.io/whitelist-source-range: xxx.yy.zz.pp/32, yyy.ss.dd.kkl/32, 1.2.3.0/24, fe80::/16
+    #@ingress.kubernetes.io/whitelist-source-range-status: unlocked
+spec:
+  rules:
+
+    # [pyios.com]
+    - host: pyios.com
+      http: &pyios_com_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              servicePort: 8080
+    - host: www.pyios.com
+      http: *pyios_com_http_rules
+    - host: wsa.pyios.com
+      http: *pyios_com_http_rules
+    - host: wechat.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: admin.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: operate.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: ucenter.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: mc.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: mall.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: shop.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: api.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: opi.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: bpi.wh.pyios.com
+      http: *pyios_com_http_rules
+    - host: wechat.qd.pyios.com
+      http: *pyios_com_http_rules
+    - host: admin.qd.pyios.com
+      http: *pyios_com_http_rules
+
+    # [nocs.cn]
+    - host: nocs.cn
+      http: &nocs_cn_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              # 80 端口
+              servicePort: 8080
+              # ssl 443 端口
+              #servicePort: 8443
+    - host: w.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: www.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: wl.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: app.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: mail.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: cli.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: mpi.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: wpi.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: p.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: gp.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: dp.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: cp.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: lp.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: pp.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: ep.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: ap.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: lw.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: im.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: sns.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: blog.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: ma.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: mirror.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: open.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: pay.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: forum.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: wsa.nocs.cn
+      http: *nocs_cn_http_rules
+    - host: api.nocs.cn
+      http: *nocs_cn_http_rules
+
+    # [*.1.tcs.iirii.com]
+    - host: 1.tcs.iirii.com
+      http: &1_tcs_iirii_com_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              servicePort: 8080
+    - host: sw.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: sc.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: sr.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: sh.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: so.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: se.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: ww.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: wc.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: wr.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: wh.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: wo.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+    - host: we.1.tcs.iirii.com
+      http: *1_tcs_iirii_com_http_rules
+
+    # [iirii.com]
+    - host: iirii.com
+      http: &iirii_com_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              servicePort: 8080
+    - host: wp.iirii.com
+      http: *iirii_com_http_rules
+    - host: sa.iirii.com
+      http: *iirii_com_http_rules
+    - host: sarah.iirii.com
+      http: *iirii_com_http_rules
+
+#    # [www.iirii.com]
+#    - host: www.iirii.com
+#      http: &www_iirii_com_http_rules
+#        paths:
+#          - path: /
+#            backend:
+#              serviceName: us-docs
+#              servicePort: 5000
+
+    # [got.iirii.com]
+    - host: got.iirii.com
+      http: &got_iirii_com_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              servicePort: 8080
+    # [git.iirii.com]
+    - host: git.iirii.com
+      http: &git_iirii_com_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              servicePort: 8080
+
+    # [*.osssn.com]
+    - host: osssn.com
+      http: &osssn_com_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              servicePort: 8080
+    - host: w.osssn.com
+      http: *osssn_com_http_rules
+    - host: www.osssn.com
+      http: *osssn_com_http_rules
+    - host: p.osssn.com
+      http: *osssn_com_http_rules
+    - host: ap.osssn.com
+      http: *osssn_com_http_rules
+    - host: cp.osssn.com
+      http: *osssn_com_http_rules
+    - host: ep.osssn.com
+      http: *osssn_com_http_rules
+    - host: open.osssn.com
+      http: *osssn_com_http_rules
+    - host: api.osssn.com
+      http: *osssn_com_http_rules
+    - host: pay.osssn.com
+      http: *osssn_com_http_rules
+    - host: wsa.osssn.com
+      http: *osssn_com_http_rules
+
+    # [*.ossse.com]
+    - host: ossse.com
+      http: &ossse_com_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              servicePort: 8080
+    - host: w.ossse.com
+      http: *ossse_com_http_rules
+    - host: www.ossse.com
+      http: *ossse_com_http_rules
+    - host: p.ossse.com
+      http: *ossse_com_http_rules
+    - host: ap.ossse.com
+      http: *ossse_com_http_rules
+    - host: cp.ossse.com
+      http: *ossse_com_http_rules
+    - host: ep.ossse.com
+      http: *ossse_com_http_rules
+    - host: mp.ossse.com
+      http: *ossse_com_http_rules
+    - host: open.ossse.com
+      http: *ossse_com_http_rules
+    - host: api.ossse.com
+      http: *ossse_com_http_rules
+    - host: pay.ossse.com
+      http: *ossse_com_http_rules
+    - host: wsa.ossse.com
+      http: *ossse_com_http_rules
+
+    # [*.iie.io]
+    - host: iie.io
+      http: &iie_io_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              servicePort: 8080
+    - host: www.iie.io
+      http: *iie_io_http_rules
+    - host: api.iie.io
+      http: *iie_io_http_rules
+    - host: mpi.iie.io
+      http: *iie_io_http_rules
+    - host: open.iie.io
+      http: *iie_io_http_rules
+    - host: admin.iie.io
+      http: *iie_io_http_rules
+    - host: wsa.iie.io
+      http: *iie_io_http_rules
+    - host: mail.iie.io
+      http: *iie_io_http_rules
+
+    # [*.yyi.io]
+    - host: yyi.io
+      http: &yyi_io_http_rules
+        paths:
+          - path: /
+            backend:
+              serviceName: us-nginx
+              servicePort: 8080
+    - host: www.yyi.io
+      http: *yyi_io_http_rules
+    - host: apl.yyi.io
+      http: *yyi_io_http_rules
+    - host: admin.yyi.io
+      http: *yyi_io_http_rules
+    - host: wsa.yyi.io
+      http: *yyi_io_http_rules
+    - host: zaw.yyi.io
+      http: *yyi_io_http_rules
+    - host: zav.yyi.io
+      http: *yyi_io_http_rules
+    - host: tj.yyi.io
+      http: *yyi_io_http_rules
+    - host: rc.yyi.io
+      http: *yyi_io_http_rules
+    - host: api.yyi.io
+      http: *yyi_io_http_rules
+    - host: cli.yyi.io
+      http: *yyi_io_http_rules
+    - host: open.yyi.io
+      http: *yyi_io_http_rules
+    - host: mail.yyi.io
+      http: *yyi_io_http_rules
+
+  tls:
+    - secretName: coam-nginx-acme-pyios.com-tls
+      hosts:
+        - pyios.com
+        - www.pyios.com
+        - wsa.pyios.com
+        - wechat.wh.pyios.com
+        - admin.wh.pyios.com
+        - operate.wh.pyios.com
+        - ucenter.wh.pyios.com
+        - mc.wh.pyios.com
+        - mall.wh.pyios.com
+        - shop.wh.pyios.com
+        - api.wh.pyios.com
+        - bpi.wh.pyios.com
+        - opi.wh.pyios.com
+        - wechat.qd.pyios.com
+        - admin.qd.pyios.com
+    - secretName: coam-nginx-acme-nocs.cn-tls
+      hosts:
+        - nocs.cn
+        - w.nocs.cn
+        - www.nocs.cn
+        - wl.nocs.cn
+        - app.nocs.cn
+        - mail.nocs.cn
+        - cli.nocs.cn
+        - mpi.nocs.cn
+        - wpi.nocs.cn
+        - p.nocs.cn
+        - gp.nocs.cn
+        - dp.nocs.cn
+        - cp.nocs.cn
+        - lp.nocs.cn
+        - pp.nocs.cn
+        - ep.nocs.cn
+        - ap.nocs.cn
+        - lw.nocs.cn
+        - im.nocs.cn
+        - sns.nocs.cn
+        - blog.nocs.cn
+        - ma.nocs.cn
+        - mirror.nocs.cn
+        - open.nocs.cn
+        - pay.nocs.cn
+        - forum.nocs.cn
+        - wsa.nocs.cn
+        - api.nocs.cn
+    - secretName: coam-nginx-acme-iirii.com-tls
+      hosts:
+        - iirii.com
+        - www.iirii.com
+        - wp.iirii.com
+        - git.iirii.com
+        - got.iirii.com
+        - 1.tcs.iirii.com
+        - sw.1.tcs.iirii.com
+        - sc.1.tcs.iirii.com
+        - sr.1.tcs.iirii.com
+        - sh.1.tcs.iirii.com
+        - so.1.tcs.iirii.com
+        - se.1.tcs.iirii.com
+        - ww.1.tcs.iirii.com
+        - wc.1.tcs.iirii.com
+        - wr.1.tcs.iirii.com
+        - wh.1.tcs.iirii.com
+        - wo.1.tcs.iirii.com
+        - we.1.tcs.iirii.com
+    - secretName: coam-nginx-acme-osssn.com-tls
+      hosts:
+        - osssn.com
+        - w.osssn.com
+        - www.osssn.com
+        - p.osssn.com
+        - ap.osssn.com
+        - cp.osssn.com
+        - ep.osssn.com
+        - open.osssn.com
+        - api.osssn.com
+        - pay.osssn.com
+        - wsa.osssn.com
+    - secretName: coam-nginx-acme-ossse.com-tls
+      hosts:
+        - ossse.com
+        - w.ossse.com
+        - www.ossse.com
+        - p.ossse.com
+        - ap.ossse.com
+        - cp.ossse.com
+        - ep.ossse.com
+        - mp.ossse.com
+        - open.ossse.com
+        - api.ossse.com
+        - pay.ossse.com
+        - wsa.ossse.com
+    - secretName: coam-nginx-acme-iie.io-tls
+      hosts:
+        - iie.io
+        - www.iie.io
+        - api.iie.io
+        - mpi.iie.io
+        - open.iie.io
+        - admin.iie.io
+        - wsa.iie.io
+        - mail.iie.io
+    - secretName: coam-nginx-acme-yyi.io-tls
+      hosts:
+        - yyi.io
+        - www.yyi.io
+        - apl.yyi.io
+        - admin.yyi.io
+        - wsa.yyi.io
+        - zaw.yyi.io
+        - zav.yyi.io
+        - tj.yyi.io
+        - rc.yyi.io
+        - api.yyi.io
+        - cli.yyi.io
+        - open.yyi.io
+        - mail.yyi.io
+
+# 配置 [Ingress] 控制台...
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: traefik-dashboard-ingress-rules
+  namespace: coam-dev-nginx-ns
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    #ingress.kubernetes.io/ssl-redirect: "true"
+    #traefik.ingress.kubernetes.io/auth-type: "basic"
+    #traefik.ingress.kubernetes.io/auth-secret: "traefik-basic-auth"
+spec:
+  rules:
+    # [traefik] 后台 [t.cs.2]
+    - host: traefik-2-tcs.iirii.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: traefik-admin-web
+              servicePort: 8383
+
+    # [traefik] 后台 [t.cs.1]
+    - host: traefik-1-tcs.iirii.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: traefik-admin-web
+              servicePort: 8383
+  tls:
+    - secretName: coam-nginx-acme-iirii.com-tls
+      hosts:
+        - tracing-k8s.iirii.com
