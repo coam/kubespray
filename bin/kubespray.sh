@@ -123,12 +123,12 @@ configs)
     for server in root@15.zsc.iirii.com:22 root@16.zsc.iirii.com:22 root@17.zsc.iirii.com:22 root@18.zsc.iirii.com:22; do
         parse_iirii_server $server ssh_user server_host server_port server_target server_path
         caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port "sed -i '/server-[0-9]\+\.cluster\.local/d' /etc/hosts"
-        caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port "cat >> /etc/hosts <<'EOF'
-10.100.0.105 server-15.cluster.local server-15
-10.100.0.106 server-16.cluster.local server-16
-10.100.0.107 server-17.cluster.local server-17
-10.100.0.108 server-18.cluster.local server-18
-EOF"
+#        caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port "cat >> /etc/hosts <<'EOF'
+#10.100.0.105 server-15.cluster.local server-15
+#10.100.0.106 server-16.cluster.local server-16
+#10.100.0.107 server-17.cluster.local server-17
+#10.100.0.108 server-18.cluster.local server-18
+#EOF"
         caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port "cat /etc/hosts"
     done
 
