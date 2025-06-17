@@ -28,9 +28,13 @@ codes)
     caller git checkout rebuild
     caller git merge $(git describe --tags $(git rev-list --tags --max-count=1))
 
-
+    # 创建新分支
     git checkout tags/v2.27.0
-    git checkout -b rebuild-v2.28.0
+    git checkout -b rebuild-v2.27.0
+
+    # 从 rebuild-v2.28.0 分支拉取 _/ 和 bin/ 目录到当前分支
+    git checkout rebuild-v2.28.0 -- _/
+    git checkout rebuild-v2.28.0 -- bin/
     ;;
 pip-mirrors)
     # [PyPI 软件仓库](https://mirrors.tuna.tsinghua.edu.cn/help/pypi/)
