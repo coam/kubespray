@@ -27,7 +27,10 @@ codes)
     caller git fetch --tags origin
     caller git checkout rebuild
     caller git merge $(git describe --tags $(git rev-list --tags --max-count=1))
-    # git checkout tags/v2.28.0
+
+
+    git checkout tags/v2.27.0
+    git checkout -b rebuild-v2.28.0
     ;;
 pip-mirrors)
     # [PyPI 软件仓库](https://mirrors.tuna.tsinghua.edu.cn/help/pypi/)
