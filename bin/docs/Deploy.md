@@ -108,3 +108,42 @@ metallb_protocol: "layer2"
 ```bash
 kubectl get nodes
 ```
+
+## `k8s` 集群新增节点
+
+修改 `inventory/mycluster/hosts.yaml` 配置，新增节点 `server-18` 配置如下
+
+```bash
+all:
+  hosts:
+    server-18:
+      ansible_host: 10.100.0.108
+      ip: 10.100.0.108
+      access_ip: 10.100.0.108
+  children:
+    kube_control_plane:
+      hosts:
+        server-15:
+        server-16:
+    kube_node:
+      hosts:
+        server-15:
+        server-16:
+        server-17:
+        server-18:
+    etcd:
+      hosts:
+        server-16:
+```
+
+执行扩容脚本
+
+```bash
+./bin/cluster.sh scale
+```
+
+查看集群扩容节点
+
+```bash
+kubectl get nodes
+```

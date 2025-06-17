@@ -38,9 +38,11 @@ deploy)
     caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root cluster.yml
     ;;
 scale)
+    # [Kubespray' s Cilium upgrade fails #12252](https://github.com/kubernetes-sigs/kubespray/issues/12252)
+    #caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root -e "cilium_remove_old_resources=true" -e "kube_owner=root" scale.yml -v --flush-cache
     caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root scale.yml -v --flush-cache
     # resolve control-plane being Ready,SchedulingDisabled
-    caller kubectl uncordon server-1
+    # caller kubectl uncordon server-1
     ;;
 remove)
     caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root remove-node.yml -e node=server-3
