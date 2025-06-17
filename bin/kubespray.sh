@@ -64,6 +64,7 @@ reconfig)
     caller yq -i '.enable_nodelocaldns = false' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
     # caller sed -i "s/^# kubectl_localhost: false/kubectl_localhost: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
+    caller sed -i "s/^# kubectl_localhost:\(.*\)/kubectl_localhost:\1/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
     caller yq -i '.kubectl_localhost = true' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
     # caller sed -i "s/^auto_renew_certificates: false/auto_renew_certificates: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
@@ -90,6 +91,7 @@ reconfig)
         #sed -i '/^#   address_pools:/,/^#   layer3:/ {s/^#//}' inventory/mycluster/group_vars/k8s_cluster/addons.yml
         #caller sed -i '/^#   address_pools:/,/^#   layer3:/ { /^#   layer3:/! s/^#// }' inventory/mycluster/group_vars/k8s_cluster/addons.yml
         caller sed -i '/^# metallb_config:/,/^#   layer3:/ { /^#   layer3:/! s/^# // }' inventory/mycluster/group_vars/k8s_cluster/addons.yml
+        caller yq -i eval 'del(.metallb_config.address_pools | (.pool1, .pool2))' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
         # MetalLB [kube-proxy in IPVS mode breaks MetalLB IPs #153](https://github.com/metallb/metallb/issues/153#issuecomment-518651132)
         # caller sed -i "s/^kube_proxy_strict_arp: false/kube_proxy_strict_arp: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
