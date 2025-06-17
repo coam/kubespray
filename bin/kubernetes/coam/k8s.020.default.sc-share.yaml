@@ -1,0 +1,119 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: nfs-client-provisioner
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nfs-client-provisioner
+  template:
+    metadata:
+      labels:
+        app: nfs-client-provisioner
+    spec:
+      serviceAccountName: nfs-client-provisioner
+      containers:
+        - name: nfs-client-provisioner
+          image: quay.io/external_storage/nfs-client-provisioner:latest
+          volumeMounts:
+            - name: nfs-client-share
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              value: nfs.iirii.com/coam
+            - name: NFS_SERVER
+              value: 2.tcs.iirii.com
+            - name: NFS_PATH
+              value: /data/home/coam/Share
+      volumes:
+        - name: nfs-client-share
+          nfs:
+            server: 2.tcs.iirii.com
+            path: /data/home/coam/Share
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nfs-client-provisioner
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: nfs-client-provisioner-runner
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumes" ]
+    verbs: [ "get", "list", "watch", "create", "delete" ]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumeclaims" ]
+    verbs: [ "get", "list", "watch", "update" ]
+  - apiGroups: [ "storage.k8s.io" ]
+    resources: [ "storageclasses" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "" ]
+    resources: [ "events" ]
+    verbs: [ "list", "watch", "create", "update", "patch" ]
+  - apiGroups: [ "" ]
+    resources: [ "endpoints" ]
+    verbs: [ "create", "delete", "get", "list", "watch", "patch", "update" ]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: run-nfs-client-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: nfs-client-provisioner
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: nfs-client-provisioner-runner
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: coam-nfs-storage
+provisioner: nfs.iirii.com/coam # or choose another name, must match deployment's env PROVISIONER_NAME'
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: test-share-pvc
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "coam-nfs-storage"
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi
+
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: test-share-pod
+spec:
+  containers:
+    - name: test-share-pod
+      image: busybox
+      imagePullPolicy: IfNotPresent
+      command: ["sleep"]
+      args: ["infinity"]
+      volumeMounts:
+        - name: nfs-share-pvc
+          mountPath: "/data/shares"
+  restartPolicy: "Never"
+  volumes:
+    - name: nfs-share-pvc
+      persistentVolumeClaim:
+        claimName: test-share-pvc

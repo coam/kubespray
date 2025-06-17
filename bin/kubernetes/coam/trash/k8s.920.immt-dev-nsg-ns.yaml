@@ -1,0 +1,176 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: immt-dev-nsg-ns
+  labels:
+    istio-injection: enabled
+
+---
+#[IngressRoute][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: immt-pyios.com-rules
+  namespace: immt-dev-nsg-ns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`immt_nsg.pyios.com`) && PathPrefix(`/`)
+      middlewares:
+        - name: immt-https-redirectscheme
+      priority: 0
+      services:
+        - name: us-immt-nsg
+          port: 9040
+  tls:
+    secretName: immt-nsg-acme-pyios.com-tls
+
+---
+#[Middleware][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# Redirect to https
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: immt-https-redirectscheme
+  namespace: immt-dev-nsg-ns
+spec:
+  redirectScheme:
+    scheme: https
+
+---
+#[ConfigMap][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  name: blockchain-config
+#  namespace: immt-dev-nsg-ns
+#data:
+#  blockchain.db: /data/home/coam/Web/Work/immt_nasgo/blockchain.db
+
+#---
+#[Deployment][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: immt-nsg-deployment
+  namespace: immt-dev-nsg-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-immt-nsg
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  template:
+    metadata:
+      labels:
+        app: us-immt-nsg
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # 直接通过节点名称调度到指定节点 - [Pod调度到指定Node](https://blog.csdn.net/u013201439/article/details/79436465)
+      nodeName: t.cs.1
+      #使用主机网络 - 暴露端口:500,4500- 不推荐 -- 不能开启,已使用 `hostPort` 暴露主机端口,否则开启端口监听将导致集群崩溃!!!
+      #hostNetwork: true
+      containers:
+        - name: us-immt-nsg
+          image: registry.ioros.com/coam/us.immt.nsg:0.0.2
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32013"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["600"]
+          #command: ["/bin/sh", "-c"]
+          #args: ["/opt/data/nasgo-node/entrypoint.sh"]
+          command: ["/bin/sh", "-c"]
+          args: ["/data/home/coam/Web/Work/immt_nasgo/nasgo-node/nasgo start && tail -f /dev/null"]
+          ports:
+            - containerPort: 22222
+              protocol: TCP
+            - containerPort: 9040
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                #command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /etc/ssl/coam
+              name: etc-ssl-coam-volume
+            - mountPath: /data/home/coam
+              name: data-home-coam-volume
+            #- name: immt-nasgo-blockchain-db
+            #  mountPath: /nasgo/blockchain.db
+            #- name: immt-nasgo-blockchain-db
+            #  mountPath: /opt/data/nasgo-node/blockchain.db
+            #  subPath: blockchain.db
+            - name: var-log-volume
+              mountPath: /var/log
+      volumes:
+        - name: etc-ssl-coam-volume
+          hostPath:
+            # directory location on host
+            path: /etc/ssl/coam
+            # this field is optional
+            type: Directory
+        - name: data-home-coam-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/coam
+            # this field is optional
+            type: Directory
+#        - name: immt-nasgo-blockchain-db
+#          configMap:
+#            name: blockchain-config
+#            items:
+#              - key: blockchain.db
+#                path: blockchain.db
+        - name: var-log-volume
+          hostPath:
+            # directory location on host
+            path: /var/log
+            # this field is optional
+            type: DirectoryOrCreate
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-immt-nsg
+  namespace: immt-dev-nsg-ns
+  labels:
+    app: us-immt-nsg
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  ports:
+    # SSH 端口
+    - name: tcp-isp-nsg-22222
+      protocol: TCP
+      port: 22000
+      targetPort: 22222
+      nodePort: 32013
+    - name: tcp-isp-nsg-9040
+      protocol: TCP
+      port: 9040
+      targetPort: 9040
+      nodePort: 9040
+  selector:
+    app: us-immt-nsg
+    version: v-0.0.2
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

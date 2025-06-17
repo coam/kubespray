@@ -1,0 +1,7 @@
+# 设置默认命名空间为自动注入模式...
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: default

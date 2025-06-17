@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sleep
+  labels:
+    app: sleep
+spec:
+  selector:
+    app: sleep
+  ports:
+    - name: ssh
+      port: 80
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: sleep-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sleep
+        version: v1
+    spec:
+      #nodeName: t.cs.2
+      containers:
+        - name: sleep
+          image: dustise/sleep
+          imagePullPolicy: Always
+          #resources:
+          #  requests:
+          #    cpu: 20m
+          #    memory: 50Mi
+          #  limits:
+          #    cpu: 50m
+          #    memory: 128Mi
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: sleep-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sleep
+        version: v2
+    spec:
+      #nodeName: t.cs.2
+      containers:
+        - name: sleep
+          image: dustise/sleep
+          imagePullPolicy: Always
+          #resources:
+          #  requests:
+          #    cpu: 20m
+          #    memory: 50Mi
+          #  limits:
+          #    cpu: 50m
+          #    memory: 128Mi

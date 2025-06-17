@@ -1,0 +1,331 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: ingressroutes.traefik.containo.us
+spec:
+  group: traefik.containo.us
+  version: v1alpha1
+  names:
+    kind: IngressRoute
+    plural: ingressroutes
+    singular: ingressroute
+  scope: Namespaced
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: traefik-ingress-controller
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+  - apiGroups:
+      - traefik.containo.us
+    resources:
+      - middlewares
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - traefik.containo.us
+    resources:
+      - ingressroutes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - traefik.containo.us
+    resources:
+      - ingressroutetcps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - traefik.containo.us
+    resources:
+      - tlsoptions
+    verbs:
+      - get
+      - list
+      - watch
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: traefik-ingress-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traefik-ingress-controller
+subjects:
+  - kind: ServiceAccount
+    name: traefik-ingress-controller
+    namespace: default
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik
+spec:
+  ports:
+    - protocol: TCP
+      name: web
+      port: 80
+    - protocol: TCP
+      name: websecure
+      port: 443
+    - protocol: TCP
+      name: admin
+      port: 30888
+  selector:
+    app: traefik
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: whoami
+spec:
+  ports:
+    - protocol: TCP
+      name: web
+      port: 80
+  selector:
+    app: whoami
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: default
+  name: traefik-ingress-controller
+
+---
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  namespace: default
+  name: traefik
+  labels:
+    app: traefik
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traefik
+  template:
+    metadata:
+      labels:
+        app: traefik
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: traefik-ingress-controller
+      hostNetwork: true
+      nodeName: t.cs.1
+      containers:
+        - name: traefik
+          image: traefik:v2.0.1
+          args:
+            - --api.insecure
+            - --accesslog=true
+            #- --metrics.prometheus=true
+            #- --tracing.zipkin=true
+            - --entrypoints.web.Address=:80
+            - --entrypoints.websecure.Address=:443
+            - --entrypoints.traefik.Address=:30888
+            - --providers.kubernetescrd
+            #- --providers.file.filename=/data/home/coam/ServerRun/runs/kubernetes/coam/_.k8s.099.dynamic_conf.yml
+            #- --certificatesresolvers.default.acme.tlschallenge
+            #- --certificatesresolvers.default.acme.email=foo@you.com
+            #- --certificatesresolvers.default.acme.storage=acme.json
+            # Please note that this is the staging Let's Encrypt server.
+            # Once you get things working, you should remove that whole line altogether.
+            #- --certificatesresolvers.default.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+          ports:
+            - name: web
+              containerPort: 80
+            - name: websecure
+              containerPort: 443
+            - name: admin
+              containerPort: 30888
+
+---
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  namespace: default
+  name: whoami
+  labels:
+    app: whoami
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: whoami
+  template:
+    metadata:
+      labels:
+        app: whoami
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+        - name: whoami
+          image: containous/whoami
+          ports:
+            - name: web
+              containerPort: 80
+
+#---
+## The definitions below require the definitions for the TLSOption and IngressRoute kinds.
+## https://docs.traefik.io/v2.0/providers/kubernetes-crd/#traefik-ingressroute-definition
+#apiVersion: traefik.containo.us/v1alpha1
+#kind: TLSOption
+#metadata:
+#  name: mytlsoption
+#  namespace: default
+#spec:
+#  minVersion: VersionTLS13
+#  cipherSuites:
+#    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+#    - TLS_RSA_WITH_AES_256_GCM_SHA384
+
+#---
+#apiVersion: traefik.containo.us/v1alpha1
+#kind: IngressRoute
+#metadata:
+#  name: ingressroutebar
+#spec:
+#  entryPoints:
+#    - web
+#  routes:
+#    - match: Host(`bar.com`)
+#      kind: Rule
+#      services:
+#        - name: whoami
+#          port: 80
+#  tls:
+#    options:
+#      name: mytlsoption
+#      namespace: default
+
+---
+apiVersion: v1
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUZaRENDQkV5Z0F3SUJBZ0lTQkJuUmpNSVVITkdwVSt5V3BBVzVnT25pTUEwR0NTcUdTSWIzRFFFQkN3VUEKTUVveEN6QUpCZ05WQkFZVEFsVlRNUll3RkFZRFZRUUtFdzFNWlhRbmN5QkZibU55ZVhCME1TTXdJUVlEVlFRRApFeHBNWlhRbmN5QkZibU55ZVhCMElFRjFkR2h2Y21sMGVTQllNekFlRncweE9UQTNNekF3TVRVd05ETmFGdzB4Ck9URXdNamd3TVRVd05ETmFNQkl4RURBT0JnTlZCQU1UQjI1dlkzTXVZMjR3Z2dFaU1BMEdDU3FHU0liM0RRRUIKQVFVQUE0SUJEd0F3Z2dFS0FvSUJBUURIYkU0UTJTajJiOEQwVXNhT1BCbnkvSzNRY1VvdWJuaGlBNnVMcG80bgpFWUc1ZGdGTGYyY2dxMjZwYjF1eUU3eUkyTFA5cWdsaFMxMTNidUhKMm9kaS9YS2ZnaUJrYVZQVitKVng0ZzRXCi9EWGhCWVA1MTh3bzcyRVFYVnl3QUlhaWFXQkJrdmgyV0wxYSt5RHNrVGpoRFlsampzRmd4RXRKaTV5d1UxK1EKcndIK0YvNWwvRUh0bS9yM2xKZWhOc0Q1Z2RhaXRJaE84MllxTTFYV1cwdEw3YktTL2c1V0lMVzc0RnJEVmlUNQpLTCt4Tk5sUnBaejRYaUdhSHZ1MWNPTDJLNWI3NUlQVjNNbktzSFVmL3ZiU25VY3RiYnEvVW1GL052Mmc4UCtjCjRSZ1NURUUrTFJZNWpQcjFERnRqaHJxR0JESWthaisrK1VRT1NsQnVMbGtoQWdNQkFBR2pnZ0o2TUlJQ2RqQU8KQmdOVkhROEJBZjhFQkFNQ0JhQXdIUVlEVlIwbEJCWXdGQVlJS3dZQkJRVUhBd0VHQ0NzR0FRVUZCd01DTUF3RwpBMVVkRXdFQi93UUNNQUF3SFFZRFZSME9CQllFRkRqMFRYazMwWVJvT2ZZUFFNbUlBWHN2d3JUN01COEdBMVVkCkl3UVlNQmFBRktoS2FtTUVmZDI2NXRFNXQ2WkZaZS96cU95aE1HOEdDQ3NHQVFVRkJ3RUJCR013WVRBdUJnZ3IKQmdFRkJRY3dBWVlpYUhSMGNEb3ZMMjlqYzNBdWFXNTBMWGd6TG14bGRITmxibU55ZVhCMExtOXlaekF2QmdncgpCZ0VGQlFjd0FvWWphSFIwY0RvdkwyTmxjblF1YVc1MExYZ3pMbXhsZEhObGJtTnllWEIwTG05eVp5OHdMd1lEClZSMFJCQ2d3Sm9JUUtpNWtiMk5yWlhJdWJtOWpjeTVqYm9JSktpNXViMk56TG1OdWdnZHViMk56TG1OdU1Fd0cKQTFVZElBUkZNRU13Q0FZR1o0RU1BUUlCTURjR0N5c0dBUVFCZ3Q4VEFRRUJNQ2d3SmdZSUt3WUJCUVVIQWdFVwpHbWgwZEhBNkx5OWpjSE11YkdWMGMyVnVZM0o1Y0hRdWIzSm5NSUlCQlFZS0t3WUJCQUhXZVFJRUFnU0I5Z1NCCjh3RHhBSFlBYjFOMnJESHdNUm5ZbVFDa1VSWC9keFVjRWRrQ3dRQXBCbzJ5Q0pvMzJSTUFBQUZzUU1tQkdBQUEKQkFNQVJ6QkZBaUVBeU1sclNpUDc1NkF0ZTM1UDV6WjMwdUZtamVoWWFQeU05MFc2UVBCMWtURUNJRlViOEMrNgpPZ0c0OUdxMlNjRTZQV1RaamtzczR3M1NySldzMHBiM05OYWNBSGNBWS9MYnplZzd6Q3pQQzNLRUoxZHJNNlNOCllYZVB2WFdtT0xISGFGUkwySTBBQUFGc1FNbUN5UUFBQkFNQVNEQkdBaUVBOUYvUGFzd1IxNXpjbDBJWnU3Vy8Ka0ZHc3pHUWQ5cGp0TVJjM3VpaVhNSmtDSVFER0l6YzFDbDdrMVRoVUh5OURYQUppS3RscWl0c0xsdmlRekV4egpvLy8reVRBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQVEzWm0wV0gxb2ZjYVB4VmFRdGJPaHk2OFhpTStiNk9JCjI3Zy92Y3owcm44UWFnTGtwL25wR2NNdUtIanNHSWlybHBDUzB0ZGg4cGtFWFRFK3FLUldZTDJlY29XVXluR0gKTEZKc2JVVXFIbmhENUdydzlUdWNhUDlxV1dKdkQ2WnZXL2poKzRnOXVYak13SU5LSGxNcUp5UTJQQ1QzdVorYgo2NGx3eHFzeE5Oc05XNlQ5VUo4REVVNEg4L0k4bEUzWFltemlXTzdXVzRuVGhWTkVucGxpRjUvU0svdytSZG1WCk0xZWR3UUlwUVNJVElLVi8xd2F5SFM3dmg4VWQ1L3BkNVF1UGppaXpkYnoyODNkK2R3aW0rNEdxaXRoTm5JZVYKQURvYXhtakN1K2lmSUFZVkZad3g2Um1rTjc1RWcxS3NSbmpqZDAxT3N2Snc4eFUydGFLSVBnPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQotLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KTUlJRWtqQ0NBM3FnQXdJQkFnSVFDZ0ZCUWdBQUFWT0ZjMm9MaGV5bkNEQU5CZ2txaGtpRzl3MEJBUXNGQURBLwpNU1F3SWdZRFZRUUtFeHRFYVdkcGRHRnNJRk5wWjI1aGRIVnlaU0JVY25WemRDQkRieTR4RnpBVkJnTlZCQU1UCkRrUlRWQ0JTYjI5MElFTkJJRmd6TUI0WERURTJNRE14TnpFMk5EQTBObG9YRFRJeE1ETXhOekUyTkRBME5sb3cKU2pFTE1Ba0dBMVVFQmhNQ1ZWTXhGakFVQmdOVkJBb1REVXhsZENkeklFVnVZM0o1Y0hReEl6QWhCZ05WQkFNVApHa3hsZENkeklFVnVZM0o1Y0hRZ1FYVjBhRzl5YVhSNUlGZ3pNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DCkFROEFNSUlCQ2dLQ0FRRUFuTk1NOEZybExrZTNjbDAzZzdOb1l6RHExelVtR1NYaHZiNDE4WENTTDdlNFMwRUYKcTZtZU5RaFk3TEVxeEdpSEM2UGpkZVRtODZkaWNicDVnV0FmMTVHYW4vUFFlR2R4eUdrT2xaSFAvdWFaNldBOApTTXgreWsxM0VpU2RSeHRhNjduc0hqY0FISnlzZTZjRjZzNUs2NzFCNVRhWXVjdjliVHlXYU44aktrS1FESVowClo4aC9wWnE0VW1FVUV6OWw2WUtIeTl2NkRsYjJob256aFQrWGhxK3czQnJ2YXcyVkZuM0VLNkJsc3BrRU5uV0EKYTZ4Szh4dVFTWGd2b3BaUEtpQWxLUVRHZE1EUU1jMlBNVGlWRnJxb003aEQ4YkVmd3pCL29ua3hFejB0TnZqagovUEl6YXJrNU1jV3Z4STBOSFdRV002cjZoQ20yMUF2QTJIM0Rrd0lEQVFBQm80SUJmVENDQVhrd0VnWURWUjBUCkFRSC9CQWd3QmdFQi93SUJBREFPQmdOVkhROEJBZjhFQkFNQ0FZWXdmd1lJS3dZQkJRVUhBUUVFY3pCeE1ESUcKQ0NzR0FRVUZCekFCaGlab2RIUndPaTh2YVhOeVp5NTBjblZ6ZEdsa0xtOWpjM0F1YVdSbGJuUnlkWE4wTG1OdgpiVEE3QmdnckJnRUZCUWN3QW9ZdmFIUjBjRG92TDJGd2NITXVhV1JsYm5SeWRYTjBMbU52YlM5eWIyOTBjeTlrCmMzUnliMjkwWTJGNE15NXdOMk13SHdZRFZSMGpCQmd3Rm9BVXhLZXhwSHNzY2ZyYjRVdVFkZi9FRldDRmlSQXcKVkFZRFZSMGdCRTB3U3pBSUJnWm5nUXdCQWdFd1B3WUxLd1lCQkFHQzN4TUJBUUV3TURBdUJnZ3JCZ0VGQlFjQwpBUllpYUhSMGNEb3ZMMk53Y3k1eWIyOTBMWGd4TG14bGRITmxibU55ZVhCMExtOXlaekE4QmdOVkhSOEVOVEF6Ck1ER2dMNkF0aGl0b2RIUndPaTh2WTNKc0xtbGtaVzUwY25WemRDNWpiMjB2UkZOVVVrOVBWRU5CV0RORFVrd3UKWTNKc01CMEdBMVVkRGdRV0JCU29TbXBqQkgzZHV1YlJPYmVtUldYdjg2anNvVEFOQmdrcWhraUc5dzBCQVFzRgpBQU9DQVFFQTNUUFhFZk5qV0RqZEdCWDdDVlcrZGxhNWNFaWxhVWNuZThJa0NKTHhXaDlLRWlrM0pIUlJIR0pvCnVNMlZjR2ZsOTZTOFRpaFJ6WnZvcm9lZDZ0aTZXcUVCbXR6dzNXb2RhdGcrVnlPZXBoNEVZcHIvMXdYS3R4OC8Kd0FwSXZKU3d0bVZpNE1GVTVhTXFyU0RFNmVhNzNNajJ0Y015bzVqTWQ2am1lV1VISzhzby9qb1dVb0hPVWd3dQpYNFBvMVFZeiszZHN6a0RxTXA0ZmtseEJ3WFJzVzEwS1h6UE1UWitzT1BBdmV5eGluZG1qa1c4bEd5K1FzUmxHClBmWitHNlo2aDdtamVtMFkraVdsa1ljVjRQSVdMMWl3Qmk4c2FDYkdTNWpOMnA4TStYK1E3VU5LRWtST2IzTjYKS09xa3FtNTdUSDJIM2VESkFrU25oNi9ETkZ1MFFnPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2UUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktjd2dnU2pBZ0VBQW9JQkFRREhiRTRRMlNqMmI4RDAKVXNhT1BCbnkvSzNRY1VvdWJuaGlBNnVMcG80bkVZRzVkZ0ZMZjJjZ3EyNnBiMXV5RTd5STJMUDlxZ2xoUzExMwpidUhKMm9kaS9YS2ZnaUJrYVZQVitKVng0ZzRXL0RYaEJZUDUxOHdvNzJFUVhWeXdBSWFpYVdCQmt2aDJXTDFhCit5RHNrVGpoRFlsampzRmd4RXRKaTV5d1UxK1Fyd0grRi81bC9FSHRtL3IzbEplaE5zRDVnZGFpdEloTzgyWXEKTTFYV1cwdEw3YktTL2c1V0lMVzc0RnJEVmlUNUtMK3hOTmxScFp6NFhpR2FIdnUxY09MMks1Yjc1SVBWM01uSwpzSFVmL3ZiU25VY3RiYnEvVW1GL052Mmc4UCtjNFJnU1RFRStMUlk1alByMURGdGpocnFHQkRJa2FqKysrVVFPClNsQnVMbGtoQWdNQkFBRUNnZ0VBVkFDbEthZXYvNDYzZ3JOVGZCcUkrN2ZBSjZ0eENmbnlyNmJJSGYwOHAreFIKN3FOc2pEYlFaQXlTZ3NDcnFXbHk0MW9WQjJjV3FHc3NwZUNKTDVQanI2ai9IWDJjMDI4aXAyRWM0bW5NY1pZdgp3K2VrM2hzdW5wZW5GVk9lZFd6alNZcUZ4MWwzVzdLcG9LZGtDUUpyS1RHZ2k5VllVOENiemhFSElhY2MvRDVkCmg3UUg4Mko3QTFIVkhqWXd0M2NheUJlQUovSGxyQXU4YWRjai9uU2xrZUpabXJaMFJLS1ROUUJFYmlrUU9lNWMKdWc2SmRwOUtjTmRrd3ZVNWErR3hIUHArN0ZWZ3ljOStpcDdxK1c2c010SHZ0N3RXNW5wMFozTUIzWFNhYUl4TwpWTHQyOU9GV1AydkQxSUg5azhQUUkvSEUwb083MFhWU2RkdE5neEloSVFLQmdRRGlzVVhEM1hQMTdaRVN1VnErCmJyeW5qeFJ5TUZvR3FiZDkwczE0cVBzejg2RWZUSXgzZFQ4WkRFS3NPdzZ2Sy84TExqYjZTQmorK3FNdVEvNVEKUUVodEgwWXArY2VnVjZEZTZzVFFqTmZqTkZFWGFHMkNwQnRjWHBtVDZxeCtJK3BNNHhkRHA5dVQ2aU9Cd1N2Qwp6b3dBRDFGLzN5STcxem9OMmxaTUNDenlCUUtCZ1FEaE5JSzBJWUJrYlpKUUF1dUpJbUZNME9ucG5mbVJBS3k1CkRSOWVtWTFoeVZMTERjTzBmTWJvQWcrVkVGTG1YdUQ2T1kyNVRYWFUreGtpWXRuTW9KOEZKTDJEcFdVbm1xVWMKYmkyNmZtYjBjakU3dDNoemxsVjNMQUlOdkJHQTdJcFgwSGp1RkRYcmJRTXRSUnZlMXM2cGpTUHZkQnRIRFVHZApRWWdVenc2cGJRS0JnRk8rRFBtb0N6aGtSRjFZWDY5TmxSK0krWktkVGdSOEdhNi9ldXdCOEpwbWU3VG1RRlc0CjJGQldlU0xLeGtmcnh0SEloc0s2YzVGdDRXNHI2L3lWWXF2OUM1eGlDMTZ1UUYxWStNL1oxNzYxQ3VmTXlmZWkKekFDNWFaNTg2Sy9JY0x0cWdLT2JsTC8xbEp4UVVld3JCUWpZbjlEUEN3UjBJNXdPZGlhc05uNUpBb0dCQU5JRgpKSGRVWHVaSmdROTVDYXRFRXJXT2h2WkZTdjY5UUZiN00rd0hDMkRNWFpmYjZFMGpxR09wdUZwdGRNSStiVlV0CjQwdVNQM2MyRElTUzUwYjc3QkRoNkpNaTVhai9nVWQ0UU5FUkhIYVBIL2J1N1RmdVZSbmtRcTRJVzlKOXhhNkwKVHB2STRWZ0N1OW0xLzMzYm1iTnBXci91NlpsamRYTndMN1lvT3lZcEFvR0FKSzhUMlRKeGlyT3lYKzFVamJlRApVZ0xFVi9oNlJFL1RjWDJHQzdYZEVzN1lmOGNtYXFFaUJ6L04zMVdpbmVLV2xxVTQvUHpkditKWm8xRE0ydHJiCmJIUzR3UUpidjF6OTd2WWxlMUwwcktoWVk4V2ZxOGpudWlXOEdhOEdWeGhjQk9mL2txaTRQaFg1dEdEWVpLOUkKNWxOUVk2YVVQMlF2SmxrbWx2MXFyWUE9Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+kind: Secret
+metadata:
+  name: supersecret
+type: kubernetes.io/tls
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: simpleingressroute
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`nocs.cn`) && PathPrefix(`/notls`)
+      kind: Rule
+      services:
+        - name: whoami
+          port: 80
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ingressroutetls
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`nocs.cn`) && PathPrefix(`/tls`)
+      kind: Rule
+      services:
+        - name: whoami
+          port: 80
+  tls:
+    secretName: supersecret
+#  tls:
+#    options:
+#      name: mytlsoption
+#      namespace: default
+#  tls:
+#    stores:
+#      default:
+#        defaultCertificate:
+#          certFile: /etc/ssl/coam/domains/nocs.cn/fullchain.crt
+#          keyFile: /etc/ssl/coam/domains/nocs.cn/private.key
+#    #certResolver: default
+#    certificates:
+#      - certFile: /data/home/coam/Run/runs/System/etc/ssl/coam/domains/nocs.cn/fullchain.crt
+#        keyFile: /data/home/coam/Run/runs/System/etc/ssl/coam/domains/nocs.cn/private.key
+#        stores:
+#          - default
+
+#---
+#apiVersion: traefik.containo.us/v1alpha1
+#kind: IngressRoute
+#metadata:
+#  name: adminingressroute
+#spec:
+#  entryPoints:
+#    - traefik
+#  routes:
+#    - match: Host(`nocs.cn`) && PathPrefix(`/admin`)
+#      kind: Rule
+#      services:
+#        - name: traefik
+#          port: 8080
+
+#---
+#apiVersion: traefik.containo.us/v1alpha1
+#kind: IngressRoute
+#metadata:
+#  annotations:
+#    kubernetes.io/ingress.class: traefik
+#  creationTimestamp: null
+#  name: coam-ingress-rules
+#  namespace: coam-dev-nginx-ns
+#spec:
+#  entryPoints: []
+#  routes:
+#    - kind: Rule
+#      match: Host(`nocs.cn`) && PathPrefix(`/`)
+#      middlewares: []
+#      priority: 0
+#      services:
+#        - name: us-nginx
+#          port: 8080

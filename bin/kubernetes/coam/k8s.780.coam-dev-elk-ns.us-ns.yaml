@@ -1,0 +1,17 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-elk-ns
+  labels:
+    istio-injection: enabled
+
+#---
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  name: elk-config
+#  namespace: coam-dev-elk-ns
+#data:
+#  charon-logging.conf: /usr/local/etc/strongswan.d/charon-logging.conf
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

@@ -1,0 +1,72 @@
+Jun  2 12:21:08 09[NET] <3> received packet: from 113.57.244.210[31895] to 172.31.141.97[500] (604 bytes)
+Jun  2 12:21:08 09[ENC] <3> parsed IKE_SA_INIT request 0 [ SA KE No N(REDIR_SUP) N(NATD_S_IP) N(NATD_D_IP) N(FRAG_SUP) ]
+Jun  2 12:21:08 09[IKE] <3> 113.57.244.210 is initiating an IKE_SA
+Jun  2 12:21:08 09[CFG] <3> selected proposal: IKE:AES_CBC_256/HMAC_SHA2_256_128/PRF_HMAC_SHA2_256/MODP_2048
+Jun  2 12:21:09 09[IKE] <3> local host is behind NAT, sending keep alives
+Jun  2 12:21:09 09[IKE] <3> remote host is behind NAT
+Jun  2 12:21:09 09[IKE] <3> sending cert request for "C=US, O=Let's Encrypt, CN=Let's Encrypt Authority X3"
+Jun  2 12:21:09 09[ENC] <3> generating IKE_SA_INIT response 0 [ SA KE No N(NATD_S_IP) N(NATD_D_IP) CERTREQ N(FRAG_SUP) N(MULT_AUTH) ]
+Jun  2 12:21:09 09[NET] <3> sending packet: from 172.31.141.97[500] to 113.57.244.210[31895] (473 bytes)
+Jun  2 12:21:29 11[IKE] <3> sending keep alive to 113.57.244.210[31895]
+
+
+
+
+Jun  2 12:21:31 14[NET] <4> received packet: from 113.57.244.210[31895] to 172.31.141.97[500] (604 bytes)
+Jun  2 12:21:31 14[ENC] <4> parsed IKE_SA_INIT request 0 [ SA KE No N(REDIR_SUP) N(NATD_S_IP) N(NATD_D_IP) N(FRAG_SUP) ]
+Jun  2 12:21:31 14[IKE] <4> 113.57.244.210 is initiating an IKE_SA
+Jun  2 12:21:31 14[CFG] <4> selected proposal: IKE:AES_CBC_256/HMAC_SHA2_256_128/PRF_HMAC_SHA2_256/MODP_2048
+Jun  2 12:21:31 14[IKE] <4> local host is behind NAT, sending keep alives
+Jun  2 12:21:31 14[IKE] <4> remote host is behind NAT
+Jun  2 12:21:31 14[IKE] <4> sending cert request for "C=US, O=Let's Encrypt, CN=Let's Encrypt Authority X3"
+Jun  2 12:21:31 14[ENC] <4> generating IKE_SA_INIT response 0 [ SA KE No N(NATD_S_IP) N(NATD_D_IP) CERTREQ N(FRAG_SUP) N(MULT_AUTH) ]
+Jun  2 12:21:31 14[NET] <4> sending packet: from 172.31.141.97[500] to 113.57.244.210[31895] (473 bytes)
+Jun  2 12:21:31 15[NET] <4> received packet: from 113.57.244.210[44175] to 172.31.141.97[4500] (512 bytes)
+Jun  2 12:21:31 15[ENC] <4> unknown attribute type (25)
+Jun  2 12:21:31 15[ENC] <4> parsed IKE_AUTH request 1 [ IDi N(INIT_CONTACT) N(MOBIKE_SUP) IDr CPRQ(ADDR DHCP DNS MASK ADDR6 DHCP6 DNS6 (25)) N(ESP_TFC_PAD_N) N(NON_FIRST_FRAG) SA TSi TSr ]
+Jun  2 12:21:31 15[CFG] <4> looking for peer configs matching 172.31.141.97[www.nocs.cn]...113.57.244.210[192.168.43.51]
+Jun  2 12:21:31 15[CFG] <ios_ikev2|4> selected peer config 'ios_ikev2'
+Jun  2 12:21:31 15[IKE] <ios_ikev2|4> initiating EAP_IDENTITY method (id 0x00)
+Jun  2 12:21:31 15[IKE] <ios_ikev2|4> received ESP_TFC_PADDING_NOT_SUPPORTED, not using ESPv3 TFC padding
+Jun  2 12:21:31 15[IKE] <ios_ikev2|4> peer supports MOBIKE
+Jun  2 12:21:31 15[IKE] <ios_ikev2|4> authentication of 'www.nocs.cn' (myself) with RSA signature successful
+Jun  2 12:21:31 15[IKE] <ios_ikev2|4> sending end entity cert "CN=*.nocs.cn"
+Jun  2 12:21:31 15[IKE] <ios_ikev2|4> sending issuer cert "C=US, O=Let's Encrypt, CN=Let's Encrypt Authority X3"
+Jun  2 12:21:31 15[ENC] <ios_ikev2|4> generating IKE_AUTH response 1 [ IDr CERT CERT AUTH EAP/REQ/ID ]
+Jun  2 12:21:31 15[ENC] <ios_ikev2|4> splitting IKE message (2912 bytes) into 3 fragments
+Jun  2 12:21:31 15[ENC] <ios_ikev2|4> generating IKE_AUTH response 1 [ EF(1/3) ]
+Jun  2 12:21:31 15[ENC] <ios_ikev2|4> generating IKE_AUTH response 1 [ EF(2/3) ]
+Jun  2 12:21:31 15[ENC] <ios_ikev2|4> generating IKE_AUTH response 1 [ EF(3/3) ]
+Jun  2 12:21:31 15[NET] <ios_ikev2|4> sending packet: from 172.31.141.97[4500] to 113.57.244.210[44175] (1236 bytes)
+Jun  2 12:21:31 15[NET] <ios_ikev2|4> sending packet: from 172.31.141.97[4500] to 113.57.244.210[44175] (1236 bytes)
+Jun  2 12:21:31 15[NET] <ios_ikev2|4> sending packet: from 172.31.141.97[4500] to 113.57.244.210[44175] (580 bytes)
+Jun  2 12:21:32 09[NET] <ios_ikev2|4> received packet: from 113.57.244.210[44175] to 172.31.141.97[4500] (96 bytes)
+Jun  2 12:21:32 09[ENC] <ios_ikev2|4> parsed IKE_AUTH request 2 [ EAP/RES/ID ]
+Jun  2 12:21:32 09[IKE] <ios_ikev2|4> received EAP identity 'zyfmix'
+Jun  2 12:21:32 09[IKE] <ios_ikev2|4> initiating EAP_MSCHAPV2 method (id 0x52)
+Jun  2 12:21:32 09[ENC] <ios_ikev2|4> generating IKE_AUTH response 2 [ EAP/REQ/MSCHAPV2 ]
+Jun  2 12:21:32 09[NET] <ios_ikev2|4> sending packet: from 172.31.141.97[4500] to 113.57.244.210[44175] (112 bytes)
+Jun  2 12:21:32 06[NET] <ios_ikev2|4> received packet: from 113.57.244.210[44175] to 172.31.141.97[4500] (144 bytes)
+Jun  2 12:21:32 06[ENC] <ios_ikev2|4> parsed IKE_AUTH request 3 [ EAP/RES/MSCHAPV2 ]
+Jun  2 12:21:32 06[ENC] <ios_ikev2|4> generating IKE_AUTH response 3 [ EAP/REQ/MSCHAPV2 ]
+Jun  2 12:21:32 06[NET] <ios_ikev2|4> sending packet: from 172.31.141.97[4500] to 113.57.244.210[44175] (144 bytes)
+Jun  2 12:21:32 13[NET] <ios_ikev2|4> received packet: from 113.57.244.210[44175] to 172.31.141.97[4500] (80 bytes)
+Jun  2 12:21:32 13[ENC] <ios_ikev2|4> parsed IKE_AUTH request 4 [ EAP/RES/MSCHAPV2 ]
+Jun  2 12:21:32 13[IKE] <ios_ikev2|4> EAP method EAP_MSCHAPV2 succeeded, MSK established
+Jun  2 12:21:32 13[ENC] <ios_ikev2|4> generating IKE_AUTH response 4 [ EAP/SUCC ]
+Jun  2 12:21:32 13[NET] <ios_ikev2|4> sending packet: from 172.31.141.97[4500] to 113.57.244.210[44175] (80 bytes)
+Jun  2 12:21:32 16[NET] <ios_ikev2|4> received packet: from 113.57.244.210[44175] to 172.31.141.97[4500] (112 bytes)
+Jun  2 12:21:32 16[ENC] <ios_ikev2|4> parsed IKE_AUTH request 5 [ AUTH ]
+Jun  2 12:21:32 16[IKE] <ios_ikev2|4> authentication of '192.168.43.51' with EAP successful
+Jun  2 12:21:32 16[IKE] <ios_ikev2|4> authentication of 'www.nocs.cn' (myself) with EAP
+Jun  2 12:21:32 16[IKE] <ios_ikev2|4> IKE_SA ios_ikev2[4] established between 172.31.141.97[www.nocs.cn]...113.57.244.210[192.168.43.51]
+Jun  2 12:21:32 16[IKE] <ios_ikev2|4> peer requested virtual IP %any
+Jun  2 12:21:32 16[CFG] <ios_ikev2|4> reassigning offline lease to 'zyfmix'
+Jun  2 12:21:32 16[IKE] <ios_ikev2|4> assigning virtual IP 10.100.0.1 to peer 'zyfmix'
+Jun  2 12:21:32 16[IKE] <ios_ikev2|4> peer requested virtual IP %any6
+Jun  2 12:21:32 16[IKE] <ios_ikev2|4> no virtual IP found for %any6 requested by 'zyfmix'
+Jun  2 12:21:32 16[CFG] <ios_ikev2|4> selected proposal: ESP:AES_CBC_256/HMAC_SHA2_256_128/NO_EXT_SEQ
+Jun  2 12:21:32 16[IKE] <ios_ikev2|4> CHILD_SA ios_ikev2{2} established with SPIs c714564d_i 08adfb7a_o and TS 0.0.0.0/0 === 10.100.0.1/32
+Jun  2 12:21:32 16[ENC] <ios_ikev2|4> generating IKE_AUTH response 5 [ AUTH CPRP(ADDR DNS DNS) SA TSi TSr N(MOBIKE_SUP) N(ADD_4_ADDR) N(ADD_4_ADDR) ]
+Jun  2 12:21:32 16[NET] <ios_ikev2|4> sending packet: from 172.31.141.97[4500] to 113.57.244.210[44175] (272 bytes)
+Jun  2 12:21:39 08[JOB] <3> deleting half open IKE_SA with 113.57.244.210 after timeout

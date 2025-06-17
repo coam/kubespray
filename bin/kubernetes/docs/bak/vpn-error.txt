@@ -1,0 +1,12 @@
+Jun  2 10:08:18 15[NET] <3> received packet: from 10.32.0.1[31875] to 10.32.0.168[500] (604 bytes)
+Jun  2 10:08:18 15[ENC] <3> parsed IKE_SA_INIT request 0 [ SA KE No N(REDIR_SUP) N(NATD_S_IP) N(NATD_D_IP) N(FRAG_SUP) ]
+Jun  2 10:08:18 15[IKE] <3> 10.32.0.1 is initiating an IKE_SA
+Jun  2 10:08:18 15[CFG] <3> selected proposal: IKE:AES_CBC_256/HMAC_SHA2_256_128/PRF_HMAC_SHA2_256/MODP_2048
+Jun  2 10:08:18 15[IKE] <3> local host is behind NAT, sending keep alives
+Jun  2 10:08:18 15[IKE] <3> remote host is behind NAT
+Jun  2 10:08:18 15[IKE] <3> sending cert request for "C=US, O=Let's Encrypt, CN=Let's Encrypt Authority X3"
+Jun  2 10:08:18 15[ENC] <3> generating IKE_SA_INIT response 0 [ SA KE No N(NATD_S_IP) N(NATD_D_IP) CERTREQ N(FRAG_SUP) N(MULT_AUTH) ]
+Jun  2 10:08:18 15[NET] <3> sending packet: from 10.32.0.168[500] to 10.32.0.1[31875] (473 bytes)
+Jun  2 10:08:19 16[IKE] <2> sending keep alive to 10.32.0.1[31875]
+Jun  2 10:08:29 06[JOB] <2> deleting half open IKE_SA with 10.32.0.1 after timeout
+Jun  2 10:08:38 08[IKE] <3> sending keep alive to 10.32.0.1[31875]

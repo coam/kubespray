@@ -1,0 +1,249 @@
+#[Namespace][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#[Reference](https://github.com/kubernetes/examples/tree/master/staging/storage/redis)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coam-dev-mysql-ns
+  labels:
+    istio-injection: enabled
+
+---
+# [From](https://k8s.io/examples/application/deployment.yaml)
+apiVersion: apps/v1 # apps/v1beta2 版本
+kind: Deployment
+metadata:
+  name: mysql-deployment
+  namespace: coam-dev-mysql-ns
+spec:
+  selector:
+    matchLabels:
+      app: us-mysql
+      version: v-0.0.2
+  replicas: 1 # 副本集数量
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: us-mysql
+        version: v-0.0.2
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      # 直接通过节点名称调度到指定节点
+      nodeName: t.cs.2
+      containers:
+        - name: us-mysql
+          #image: registry.ioros.com/coam/us.mysql.ext:0.0.2
+          image: registry.cn-hangzhou.aliyuncs.com/coam/us.mysql.ext:20.11.11
+          env:
+            - name: COAM-SSH-NODE-PORT
+              value: "32021"
+          # Just sleep forever
+          #command: ["sleep"]
+          #args: ["infinity"]
+          command: ["/usr/local/mysql/bin/mysqld"]
+          args: ["--user=mysql"]
+          terminationMessagePath: /var/log/kubernetes/termination/pods.log
+          ports:
+            - containerPort: 3306
+              protocol: TCP
+            - containerPort: 22222
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1002
+          lifecycle:
+            postStart:
+              exec:
+                # start ssh service...
+                command: ["/bin/sh", "-c", "/usr/sbin/sshd -f ~/.ssh/server/etc/sshd_config"]
+                #command: ["/bin/sh", "-c", "echo ..."]
+          volumeMounts:
+            - mountPath: /home/mysql
+              name: home-mysql-volume
+            - mountPath: /etc/mysql
+              name: etc-mysql-volume
+            - mountPath: /data/home/data/mysql
+              name: data-home-data-mysql-volume
+      volumes:
+        - name: home-mysql-volume
+          hostPath:
+            # directory location on host
+            path: /home/mysql
+            # this field is optional
+            type: Directory
+        - name: etc-mysql-volume
+          hostPath:
+            # directory location on host
+            path: /etc/mysql
+            # this field is optional
+            type: Directory
+        - name: data-home-data-mysql-volume
+          hostPath:
+            # directory location on host
+            path: /data/home/data/mysql
+            # this field is optional
+            type: Directory
+
+---
+#[Service][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+# [From](https://kubernetes.io/zh/docs/concepts/services-networking/connect-applications-service/)
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-mysql
+  namespace: coam-dev-mysql-ns
+  labels:
+    app: us-mysql
+    version: v-0.0.2
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: tcp-isp-mysql-3306
+      protocol: TCP
+      port: 3306
+      targetPort: 3306
+      nodePort: 3306
+    - name: tcp-isp-mysql-22222
+      protocol: TCP
+      port: 22020
+      targetPort: 22222
+      nodePort: 32021
+  selector:
+    app: us-mysql
+    version: v-0.0.2
+  sessionAffinity: None
+
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]
+#---
+#apiVersion: "authentication.istio.io/v1alpha1"
+#kind: "Policy"
+#metadata:
+#  name: mysql-nomtls-authn
+#spec:
+#  targets:
+#    - name: mysql-service
+
+#---
+#apiVersion: "networking.istio.io/v1alpha3"
+#kind: "DestinationRule"
+#metadata:
+#  name: "istio-client-mtls"
+#  namespace: coam-dev-mysql-ns
+#spec:
+#  #host: "*.svc.cluster.local"
+#  host: "us-mysql.coam-dev-mysql-ns.svc.cluster.local"
+#  trafficPolicy:
+#    tls:
+#      mode: ISTIO_MUTUAL
+
+#apiVersion: networking.istio.io/v1alpha3
+#kind: ServiceEntry
+#metadata:
+#  name: magento-to-mysql
+#  namespace: coam-dev-mysql-ns
+#spec:
+#  hosts:
+#    - "us-mysql.coam-dev-mysql-ns.svc.cluster.local"
+#  ports:
+#    - number: 3306
+#      name: mysql
+#      protocol: TCP
+#  resolution: DNS
+#
+#---
+#apiVersion: networking.istio.io/v1alpha3
+#kind: DestinationRule
+#metadata:
+#  name: "magento-to-mysql"
+#  namespace: coam-dev-mysql-ns
+#spec:
+#  host: "us-mysql.coam-dev-mysql-ns.svc.cluster.local"
+#  trafficPolicy:
+#    tls:
+#      mode: DISABLE
+
+#---
+#apiVersion: "networking.istio.io/v1alpha3"
+#kind: "DestinationRule"
+#metadata:
+#  name: "istio-client-mtls"
+#  namespace: coam-dev-mysql-ns
+#spec:
+#  host: "*.svc.cluster.local"
+#  trafficPolicy:
+#    tls:
+#      mode: ISTIO_MUTUAL
+
+#---
+#apiVersion: "authentication.istio.io/v1alpha1"
+#kind: "MeshPolicy"
+#metadata:
+#  name: default
+#spec:
+#  peers:
+#    - mtls: {}
+
+#---
+#apiVersion: "networking.istio.io/v1alpha3"
+#kind: "DestinationRule"
+#metadata:
+#  name: "default"
+#  #namespace: "coam-dev-mysql-ns"
+#spec:
+#  host: "*.svc.cluster.local"
+#  trafficPolicy:
+#    tls:
+#      mode: DISABLE
+
+#---
+#apiVersion: "authentication.istio.io/v1alpha1"
+#kind: "Policy"
+#metadata:
+#  name: "mysql-policy"
+#spec:
+#  targets:
+#    - name: us-mysql
+#---
+#apiVersion: "networking.istio.io/v1alpha3"
+#kind: "DestinationRule"
+#metadata:
+#  name: "mysql-policy"
+#  namespace: coam-dev-mysql-ns
+#spec:
+#  host: "us-mysql.coam-dev-mysql-ns.svc.cluster.local"
+#  trafficPolicy:
+#    tls:
+#      mode: DISABLE
+
+#---
+#apiVersion: "authentication.istio.io/v1alpha1"
+#kind: "Policy"
+#metadata:
+#  name: mysql-mtls-authn
+#  namespace: coam-dev-mysql-ns
+#spec:
+#  targets:
+#    - name: "us-mysql"
+#  peers:
+#    - mtls:
+#        mode: STRICT
+#
+#---
+#apiVersion: networking.istio.io/v1alpha3
+#kind: DestinationRule
+#metadata:
+#  name: mysql-mtls-dr
+#  namespace: coam-dev-mysql-ns
+#spec:
+#  host: "us-mysql.coam-dev-mysql-ns.svc.cluster.local"
+#  trafficPolicy:
+#    tls:
+#      mode: ISTIO_MUTUAL
+#[Ended][@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@]

@@ -1,0 +1,57 @@
+06[NET] received packet: from 10.32.0.1[60557] to 10.32.0.168[500] (604 bytes)
+06[ENC] parsed IKE_SA_INIT request 0 [ SA KE No N(REDIR_SUP) N(NATD_S_IP) N(NATD_D_IP) N(FRAG_SUP) ]
+06[IKE] 10.32.0.1 is initiating an IKE_SA
+06[CFG] selected proposal: IKE:AES_CBC_256/HMAC_SHA2_256_128/PRF_HMAC_SHA2_256/MODP_2048
+06[IKE] local host is behind NAT, sending keep alives
+06[IKE] remote host is behind NAT
+06[IKE] sending cert request for "C=US, O=Let's Encrypt, CN=Let's Encrypt Authority X3"
+06[ENC] generating IKE_SA_INIT response 0 [ SA KE No N(NATD_S_IP) N(NATD_D_IP) CERTREQ N(FRAG_SUP) N(MULT_AUTH) ]
+06[NET] sending packet: from 10.32.0.168[500] to 10.32.0.1[60557] (473 bytes)
+08[NET] received packet: from 10.32.0.1[31435] to 10.32.0.168[4500] (512 bytes)
+08[ENC] unknown attribute type (25)
+08[ENC] parsed IKE_AUTH request 1 [ IDi N(INIT_CONTACT) N(MOBIKE_SUP) IDr CPRQ(ADDR DHCP DNS MASK ADDR6 DHCP6 DNS6 (25)) N(ESP_TFC_PAD_N) N(NON_FIRST_FRAG) SA TSi TSr ]
+08[CFG] looking for peer configs matching 10.32.0.168[www.nocs.cn]...10.32.0.1[192.168.43.164]
+08[CFG] selected peer config 'ios_ikev2'
+08[IKE] initiating EAP_IDENTITY method (id 0x00)
+08[IKE] received ESP_TFC_PADDING_NOT_SUPPORTED, not using ESPv3 TFC padding
+08[IKE] peer supports MOBIKE
+08[IKE] authentication of 'www.nocs.cn' (myself) with RSA signature successful
+08[IKE] sending end entity cert "CN=*.nocs.cn"
+08[IKE] sending issuer cert "C=US, O=Let's Encrypt, CN=Let's Encrypt Authority X3"
+08[ENC] generating IKE_AUTH response 1 [ IDr CERT CERT AUTH EAP/REQ/ID ]
+08[ENC] splitting IKE message (2912 bytes) into 3 fragments
+08[ENC] generating IKE_AUTH response 1 [ EF(1/3) ]
+08[ENC] generating IKE_AUTH response 1 [ EF(2/3) ]
+08[ENC] generating IKE_AUTH response 1 [ EF(3/3) ]
+08[NET] sending packet: from 10.32.0.168[4500] to 10.32.0.1[31435] (1236 bytes)
+08[NET] sending packet: from 10.32.0.168[4500] to 10.32.0.1[31435] (1236 bytes)
+08[NET] sending packet: from 10.32.0.168[4500] to 10.32.0.1[31435] (580 bytes)
+10[NET] received packet: from 10.32.0.1[31435] to 10.32.0.168[4500] (96 bytes)
+10[ENC] parsed IKE_AUTH request 2 [ EAP/RES/ID ]
+10[IKE] received EAP identity 'zyfmix'
+10[IKE] initiating EAP_MSCHAPV2 method (id 0x6B)
+10[ENC] generating IKE_AUTH response 2 [ EAP/REQ/MSCHAPV2 ]
+10[NET] sending packet: from 10.32.0.168[4500] to 10.32.0.1[31435] (112 bytes)
+07[NET] received packet: from 10.32.0.1[31435] to 10.32.0.168[4500] (144 bytes)
+07[ENC] parsed IKE_AUTH request 3 [ EAP/RES/MSCHAPV2 ]
+07[ENC] generating IKE_AUTH response 3 [ EAP/REQ/MSCHAPV2 ]
+07[NET] sending packet: from 10.32.0.168[4500] to 10.32.0.1[31435] (144 bytes)
+12[NET] received packet: from 10.32.0.1[31435] to 10.32.0.168[4500] (80 bytes)
+12[ENC] parsed IKE_AUTH request 4 [ EAP/RES/MSCHAPV2 ]
+12[IKE] EAP method EAP_MSCHAPV2 succeeded, MSK established
+12[ENC] generating IKE_AUTH response 4 [ EAP/SUCC ]
+12[NET] sending packet: from 10.32.0.168[4500] to 10.32.0.1[31435] (80 bytes)
+11[NET] received packet: from 10.32.0.1[31435] to 10.32.0.168[4500] (112 bytes)
+11[ENC] parsed IKE_AUTH request 5 [ AUTH ]
+11[IKE] authentication of '192.168.43.164' with EAP successful
+11[IKE] authentication of 'www.nocs.cn' (myself) with EAP
+11[IKE] IKE_SA ios_ikev2[1] established between 10.32.0.168[www.nocs.cn]...10.32.0.1[192.168.43.164]
+11[IKE] peer requested virtual IP %any
+11[CFG] assigning new lease to 'zyfmix'
+11[IKE] assigning virtual IP 10.100.0.1 to peer 'zyfmix'
+11[IKE] peer requested virtual IP %any6
+11[IKE] no virtual IP found for %any6 requested by 'zyfmix'
+11[CFG] selected proposal: ESP:AES_CBC_256/HMAC_SHA2_256_128/NO_EXT_SEQ
+11[IKE] CHILD_SA ios_ikev2{1} established with SPIs cfac974d_i 04c0ca0c_o and TS 0.0.0.0/0 === 10.100.0.1/32
+11[ENC] generating IKE_AUTH response 5 [ AUTH CPRP(ADDR DNS DNS) SA TSi TSr N(MOBIKE_SUP) N(NO_ADD_ADDR) ]
+11[NET] sending packet: from 10.32.0.168[4500] to 10.32.0.1[31435] (256 bytes)
