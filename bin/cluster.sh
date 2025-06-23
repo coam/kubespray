@@ -44,13 +44,36 @@ scale)
     # resolve control-plane being Ready,SchedulingDisabled
     # caller kubectl uncordon server-1
     ;;
+taints)
+    caller "kubectl get nodes -l node-role.kubernetes.io/control-plane= -o jsonpath='{.items[*].spec.taints}' | jq"
+    caller "kubectl describe node server-15 | grep Taints"
+    caller "kubectl describe node server-16 | grep Taints"
+    # 设置污点
+    caller "kubectl taint nodes server-15 node-role.kubernetes.io/control-plane:NoSchedule || true"
+    caller "kubectl taint nodes server-16 node-role.kubernetes.io/control-plane:NoSchedule || true"
+    # 移除污点
+    #caller kubectl taint nodes server-15 node-role.kubernetes.io/control-plane:NoSchedule-
+    #caller kubectl taint nodes server-16 node-role.kubernetes.io/control-plane:NoSchedule-
+    ;;
 remove)
-    caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root remove-node.yml -e node=server-3
+    # caller kubectl drain server-18 --ignore-daemonsets --delete-emptydir-data
+    # caller kubectl delete node server-18
+
+    #caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root remove-node.yml -e node=server-18
+    caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root remove-node.yml -v --extra-vars "node=server-18"
+
+    # 更新集群证书
+    # caller ansible-playbook -i inventory/mycluster/hosts.yaml --become --become-user=root cluster.yml -e "reset_confirmation=yes"
+
+    # 修改 inventory/mycluster/hosts.yaml，删除要移除节点的所有配置 `server-18`
     ;;
 down)
     caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.cluster.local
     caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/config.cluster.local
     caller cat ~/.kube/config.cluster.local
+    ;;
+info)
+    caller 'kubectl describe nodes | grep -i taints'
     ;;
 other)
     caller kubectl krew install ctx

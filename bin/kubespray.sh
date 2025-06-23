@@ -61,7 +61,7 @@ reconfig)
     # caller sed -i "s/^# supplementary_addresses_in_ssl_keys:.*/supplementary_addresses_in_ssl_keys: [ 1.cos.iirii.com ]/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
     # caller sed -i "s/^enable_nodelocaldns: true/enable_nodelocaldns: false/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
-    caller yq -i '.enable_nodelocaldns = false' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
+    caller yq -i '.enable_nodelocaldns = true' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
     # caller sed -i "s/^# kubectl_localhost: false/kubectl_localhost: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
     caller sed -i "s/^# kubectl_localhost:\(.*\)/kubectl_localhost:\1/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
@@ -97,6 +97,10 @@ reconfig)
         # caller sed -i "s/^kube_proxy_strict_arp: false/kube_proxy_strict_arp: true/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
         caller yq -i '.kube_proxy_strict_arp = true' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
     }
+
+    caller yq -i '.metrics_server_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
+
+    caller yq -i '.gateway_api_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
     # echo 'kube_apiserver_node_port_range: "30000-39999"' >>inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
     caller yq -i '.kube_apiserver_node_port_range = "30000-39999"' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
