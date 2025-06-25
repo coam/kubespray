@@ -68,13 +68,21 @@ remove)
     # 修改 inventory/mycluster/hosts.yaml，删除要移除节点的所有配置 `server-18`
     ;;
 down)
-    caller scp root@11.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/zsc.cluster.11
-    caller sed -i "s/127.0.0.1:6443/10.100.0.101:6443/g" ~/.kube/zsc.cluster.11
-    caller cat ~/.kube/zsc.cluster.11
+    {
+        caller scp root@11.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.zsc.11
+        caller sed -i "s/127.0.0.1:6443/10.100.0.101:6443/g" ~/.kube/config.zsc.11
+        caller sed -i "s/cluster.local/zsc.cluster.11/g" ~/.kube/config.zsc.11
+        caller sed -i "s/kubernetes-admin/kubernetes-admin-11/g" ~/.kube/config.zsc.11
+        caller cat ~/.kube/config.zsc.11
+    }
 
-#    caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/zsc.cluster.15
-#    caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/zsc.cluster.15
-#    caller cat ~/.kube/zsc.cluster.11
+    {
+        caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.zsc.15
+        caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/config.zsc.15
+        caller sed -i "s/cluster.local/zsc.cluster.15/g" ~/.kube/config.zsc.15
+        caller sed -i "s/kubernetes-admin/kubernetes-admin-15/g" ~/.kube/config.zsc.15
+        caller cat ~/.kube/config.zsc.15
+    }
     ;;
 info)
     caller 'kubectl describe nodes | grep -i taints'
