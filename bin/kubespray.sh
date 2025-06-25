@@ -51,7 +51,7 @@ reconfig)
     # caller rm -rf inventory/mycluster
     # caller cp -rfp inventory/sample inventory/mycluster
     # caller rsync -H -avP --delete --exclude=conf/{cros_headers.conf,log_format.conf,proxy_headers.conf,ssl/,luafile/} --filter='protect conf/ssl' inventory/sample inventory/mycluster
-    caller rsync -H -avP --delete --filter='P hosts.yaml' --filter='P vars.yaml' inventory/sample/. inventory/mycluster
+    caller rsync -H -avP --delete --filter='P hosts.yaml' --filter='P host-1.yaml' --filter='P vars.yaml' inventory/sample/. inventory/mycluster
     # python contrib/inventory_builder/inventory.py {{ lookup('ansible.builtin.env', 'DEPLOY_SERVERS') | split(',') | join(' ') }}
 
     # caller sed -i "s/^minimal_node_memory_mb: 1024/minimal_node_memory_mb: 800/g" roles/kubernetes/preinstall/defaults/main.yml
@@ -133,7 +133,12 @@ reconfig)
     caller yq -i '.https_proxy = "http://chess:ceaqaz000@proxy.zsc.iirii.com:7890"' inventory/mycluster/group_vars/all/all.yml
     ;;
 configs)
-    for server in root@15.zsc.iirii.com:22 root@16.zsc.iirii.com:22 root@17.zsc.iirii.com:22 root@18.zsc.iirii.com:22; do
+    servers=()
+#    servers+=("root@15.zsc.iirii.com:22")
+#    servers+=("root@16.zsc.iirii.com:22")
+#    servers+=("root@17.zsc.iirii.com:22")
+#    servers+=("root@18.zsc.iirii.com:22")
+    for server in "${servers[@]}"; do
         parse_iirii_server $server ssh_user server_host server_port server_target server_path
         caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port "sed -i '/server-[0-9]\+\.cluster\.local/d' /etc/hosts"
 #        caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port "cat >> /etc/hosts <<'EOF'
@@ -150,12 +155,31 @@ configs)
     #    caller ssh -o StrictHostKeyChecking=no root@17.zsc.iirii.com -p 22 "echo server-17 > /etc/hostname && cat /etc/hostname && hostname server-17 && hostname"
     #    caller ssh -o StrictHostKeyChecking=no root@18.zsc.iirii.com -p 22 "echo server-18 > /etc/hostname && cat /etc/hostname && hostname server-18 && hostname"
 
-    for server in 15 16 17 18; do
-        caller ssh -o StrictHostKeyChecking=no root@$server.zsc.iirii.com -p 22 "echo server-$server > /etc/hostname && cat /etc/hostname && hostname server-$server && hostname"
+    servers=()
+#    servers+=("root@15.zsc.iirii.com:22")
+#    servers+=("root@16.zsc.iirii.com:22")
+#    servers+=("root@17.zsc.iirii.com:22")
+#    servers+=("root@18.zsc.iirii.com:22")
+    for server in "${servers[@]}"; do
+        parse_iirii_server $server ssh_user server_host server_port server_target server_path
+
+        caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port "echo server-$server > /etc/hostname && cat /etc/hostname && hostname server-$server && hostname"
     done
 
-    for server in 15 16 17 18; do
-        caller ssh -T -o StrictHostKeyChecking=no root@$server.zsc.iirii.com -p 22 <<'EOF'
+    servers=()
+    servers+=("root@11.zsc.iirii.com:22")
+    servers+=("root@12.zsc.iirii.com:22")
+    servers+=("root@13.zsc.iirii.com:22")
+    servers+=("root@14.zsc.iirii.com:22")
+
+#    servers+=("root@15.zsc.iirii.com:22")
+#    servers+=("root@16.zsc.iirii.com:22")
+#    servers+=("root@17.zsc.iirii.com:22")
+#    servers+=("root@18.zsc.iirii.com:22")
+    for server in "${servers[@]}"; do
+        parse_iirii_server $server ssh_user server_host server_port server_target server_path
+
+        caller ssh -T -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port <<'EOF'
 #!/usr/bin/env bash
 set -e
 
@@ -168,7 +192,6 @@ echo "check apt mirrors"
 }
 echo "check apt successful"
 EOF
-
     done
     ;;
 *)

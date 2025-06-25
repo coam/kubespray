@@ -68,9 +68,13 @@ remove)
     # 修改 inventory/mycluster/hosts.yaml，删除要移除节点的所有配置 `server-18`
     ;;
 down)
-    caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.cluster.local
-    caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/config.cluster.local
-    caller cat ~/.kube/config.cluster.local
+    caller scp root@11.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/zsc.cluster.11
+    caller sed -i "s/127.0.0.1:6443/10.100.0.101:6443/g" ~/.kube/zsc.cluster.11
+    caller cat ~/.kube/zsc.cluster.11
+
+#    caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/zsc.cluster.15
+#    caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/zsc.cluster.15
+#    caller cat ~/.kube/zsc.cluster.11
     ;;
 info)
     caller 'kubectl describe nodes | grep -i taints'
@@ -78,6 +82,60 @@ info)
 other)
     caller kubectl krew install ctx
     caller kubectl krew install ns
+    ;;
+clean)
+    # 在主节点上执行
+    #kubectl drain <节点名称> --delete-local-data --force --ignore-daemonsets
+    #kubectl delete node <节点名称>
+
+    #停止所有 Kubernetes 服务
+    sudo systemctl stop kubelet
+    sudo systemctl stop docker containerd
+
+    #卸载 Kubernetes 相关软件包
+    sudo apt-get purge -y kubelet kubeadm kubectl
+    sudo apt-get purge -y docker-ce docker-ce-cli containerd.io
+
+    #删除所有相关文件和目录
+    sudo rm -rf /etc/kubernetes
+    sudo rm -rf /var/lib/kubelet
+    sudo rm -rf /var/lib/docker
+    sudo rm -rf /var/lib/containerd
+    sudo rm -rf /etc/cni/net.d
+    sudo rm -rf /opt/cni/bin
+
+    #清理网络配置
+    sudo iptables -F
+    sudo iptables -t nat -F
+    sudo iptables -t mangle -F
+    sudo iptables -X
+
+    #删除残留的 Docker 配置
+
+    sudo rm -rf /var/run/docker.sock
+    sudo rm -rf /etc/docker
+
+    #清理系统d服务配置
+
+    sudo systemctl daemon-reload
+
+    #可选：删除其他可能的相关包
+
+    sudo apt-get purge -y kubernetes-cni
+    sudo apt-get autoremove -y
+
+    # 3. 验证清理
+
+    # 检查是否还有kubelet进程
+    ps aux | grep kubelet
+
+    # 检查是否还有docker/containerd进程
+    ps aux | grep docker
+    ps aux | grep containerd
+
+    # 检查相关目录是否已删除
+    ls /etc/kubernetes
+    ls /var/lib/kubelet
     ;;
 *)
     echo "[参数命令不合法]case: $Case [test,cluster,k8s,kubesphere,other]"
