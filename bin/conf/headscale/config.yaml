@@ -10,7 +10,7 @@
 #
 # https://myheadscale.example.com:443
 #
-server_url: http://127.0.0.1:58080
+server_url: https://w.gpuez.com:58080
 # Address to listen to / bind to on the server
 #
 # For production:
@@ -66,7 +66,7 @@ derp:
   server:
     # If enabled, runs the embedded DERP server and merges it into the rest of the DERP config
     # The Headscale server_url defined above MUST be using https, DERP requires TLS to be in place
-    enabled: false
+    enabled: true
     # Region ID to use for the embedded DERP server.
     # The local DERP prevails if the region ID collides with other region ID coming from
     # the regular DERP config.
@@ -88,8 +88,7 @@ derp:
     automatically_add_embedded_derp_region: true
     # For better connection stability (especially when using an Exit-Node and DNS is not working),
     # it is possible to optionally add the public IPv4 and IPv6 address to the Derp-Map using:
-    ipv4: 1.2.3.4
-    ipv6: 2001:db8::1
+    ipv4: 182.92.160.148
   # List of externally available DERP maps encoded in JSON
   urls:
     - https://controlplane.tailscale.com/derpmap/default
@@ -182,8 +181,8 @@ tls_letsencrypt_challenge_type: HTTP-01
 # :http = port 80
 tls_letsencrypt_listen: ":http"
 ## Use already defined certificates:
-tls_cert_path: ""
-tls_key_path: ""
+tls_cert_path: "/usr/local/openresty/nginx/conf/ssl/gpuez.com/fullchain1.pem"
+tls_key_path: "/usr/local/openresty/nginx/conf/ssl/gpuez.com/privkey1.pem"
 log:
   # Output formatting for logs: text or json
   format: text
@@ -335,7 +334,7 @@ logtail:
   # Enable logtail for this headscales clients.
   # As there is currently no support for overriding the log server in headscale, this is
   # disabled by default. Enabling this will make your clients send logs to Tailscale Inc.
-  enabled: false
+  enabled: true
 # Enabling this option makes devices prefer a random port for WireGuard traffic over the
 # default static port 41641. This option is intended as a workaround for some buggy
 # firewall devices. See https://tailscale.com/kb/1181/firewalls/ for more information.

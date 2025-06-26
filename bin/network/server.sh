@@ -20,21 +20,11 @@ help)
     ebc_debug "用法: networks.sh <Case>"
     ebc_debug "示例: networks.sh issue"
     ;;
-#setup)
-#    # 替换为自己的网段(IPV4或IPV6)
-#    caller tailscale up --advertise-routes=20.13.3.0/24
-#    ;;
-mac)
-    #brew install tailscale
-
-    #login_server=http://0.gw.zsc.iirii.com:58080
-    login_server=http://w.gpuez.com:58080
-    server_name=mac-client
-
-    caller tailscale login --auth-key 2e7af75a7514700fddd51b8f47bf6498190b28f786d5c31c --login-server $login_server --hostname $server_name
-    ;;
-server-reconfig)
-    wget --output-document=bin/conf/headscale/config.yaml https://raw.githubusercontent.com/juanfont/headscale/refs/tags/v0.26.1/config-example.yaml
+reconfig)
+    #wget --output-document=bin/conf/headscale/config.yaml https://raw.githubusercontent.com/juanfont/headscale/refs/tags/v0.26.1/config-example.yaml
+    #wget --output-document=bin/conf/headscale/config.yaml https://raw.staticdn.net/juanfont/headscale/refs/tags/v0.26.1/config-example.yaml
+    #wget --output-document=bin/conf/headscale/config.yaml https://raw.fastgit.org/juanfont/headscale/refs/tags/v0.26.1/config-example.yaml
+    wget --output-document=bin/conf/headscale/config.yaml https://raw.gitmirror.com/juanfont/headscale/refs/tags/v0.26.1/config-example.yaml
 
     # 2.cos.iirii.com
     false && {
@@ -51,7 +41,7 @@ server-reconfig)
 
     # 0.gw.zsc.iirii.com
     true && {
-        caller yq -i '.server_url = "http://127.0.0.1:58080"' bin/conf/headscale/config.yaml
+        caller yq -i '.server_url = "https://w.gpuez.com:58080"' bin/conf/headscale/config.yaml
         caller yq -i '.listen_addr = "0.0.0.0:58080"' bin/conf/headscale/config.yaml
         caller yq -i '.metrics_listen_addr = "127.0.0.1:59090"' bin/conf/headscale/config.yaml
         caller yq -i '.grpc_listen_addr = "127.0.0.1:50443"' bin/conf/headscale/config.yaml
@@ -60,9 +50,20 @@ server-reconfig)
         #caller yq -i '.acme_email = "zyf@iirii.com"' bin/conf/headscale/config.yaml
         #caller yq -i '.tls_letsencrypt_hostname = "2.cos.iirii.com"' bin/conf/headscale/config.yaml
         caller yq -i '.log.level = "debug"' bin/conf/headscale/config.yaml
+
+        caller yq -i '.tls_cert_path = "/usr/local/openresty/nginx/conf/ssl/gpuez.com/fullchain1.pem"' bin/conf/headscale/config.yaml
+        caller yq -i '.tls_key_path = "/usr/local/openresty/nginx/conf/ssl/gpuez.com/privkey1.pem"' bin/conf/headscale/config.yaml
+
+        caller yq -i '.derp.server.enabled = true' bin/conf/headscale/config.yaml
+        caller yq -i '.derp.server.ipv4 = "182.92.160.148"' bin/conf/headscale/config.yaml
+        #caller yq -i '.derp.server.private_key_path = "/usr/local/openresty/nginx/conf/ssl/gpuez.com/privkey1.pem"' bin/conf/headscale/config.yaml
+        #caller yq -i '.derp.server.ipv6 = ""' bin/conf/headscale/config.yaml
+        caller yq -i eval 'del(.derp.server.ipv6)' bin/conf/headscale/config.yaml
+
+        caller yq -i '.logtail.enabled = true' bin/conf/headscale/config.yaml
     }
     ;;
-server-deploy)
+deploy)
     servers=()
 #    servers+=("root@2.cos.iirii.com:22")
     servers+=("root@0.gw.zsc.iirii.com:22")
@@ -88,10 +89,10 @@ EOF
 
         caller rsync -H -avP --delete -e "ssh -o StrictHostKeyChecking=no -p $server_port" bin/conf/headscale/config.yaml $ssh_user@$server_target.iirii.com:/etc/headscale/config.yaml
 
-        caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port 'systemctl enable --now headscale && systemctl status headscale'
+        caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port 'systemctl enable --now headscale && systemctl restart headscale && systemctl status headscale'
     done
     ;;
-server-logs)
+logs)
     servers=()
 #    servers+=("root@2.cos.iirii.com:22")
     servers+=("root@0.gw.zsc.iirii.com:22")
@@ -101,7 +102,7 @@ server-logs)
         caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port 'journalctl -u headscale -f'
     done
     ;;
-server-users)
+users)
     servers=()
 #    servers+=("root@2.cos.iirii.com:22")
     servers+=("root@0.gw.zsc.iirii.com:22")
@@ -120,7 +121,7 @@ headscale preauthkeys list -u 3
 EOF
     done
     ;;
-server-status)
+status)
     servers=()
     #servers+=("root@2.cos.iirii.com:22")
     servers+=("root@0.gw.zsc.iirii.com:22")
@@ -138,7 +139,7 @@ headscale preauthkeys list -u 3
 EOF
     done
     ;;
-server-tests)
+tests)
     servers=()
     #servers+=("root@2.cos.iirii.com:22")
     servers+=("root@0.gw.zsc.iirii.com:22")
@@ -154,7 +155,7 @@ headscale nodes list
 EOF
     done
     ;;
-server-clean)
+clean)
     servers=()
 #    servers+=("root@2.cos.iirii.com:22")
     servers+=("root@0.gw.zsc.iirii.com:22")
@@ -175,118 +176,6 @@ headscale users list
 headscale nodes list
 EOF
     done
-    ;;
-client-deploy)
-    servers=()
-    servers+=("root@11.zsc.iirii.com:22")
-    servers+=("root@12.zsc.iirii.com:22")
-    servers+=("root@13.zsc.iirii.com:22")
-    servers+=("root@14.zsc.iirii.com:22")
-#    servers+=("root@10.qy.zsc.iirii.com:1022")
-    for server in "${servers[@]}"; do
-        parse_iirii_server $server ssh_user server_host server_port server_target server_path
-
-        server_name="${server_path//./-}"
-
-#        login_server=https://2.cos.iirii.com:58080
-        login_server=http://0.gw.zsc.iirii.com:58080
-
-        caller ssh -T -o StrictHostKeyChecking=no $ssh_user@$server_target.iirii.com -p $server_port <<EOF
-#!/usr/bin/env bash
-set -e
-
-echo "check tailscale client config"
-
-#[ ! -f /var/snap/tailscale/common/tailscaled.state ] && {
-#    echo "install tailscale service"
-#    snap install tailscale
-#}
-
-[ ! -f /var/lib/tailscale/tailscaled.state ] && {
-    echo "install tailscale service"
-    #curl -fsSL https://tailscale.com/install.sh | sh
-
-    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
-
-    apt-get update
-    apt-get install -y tailscale
-}
-
-tailscale ip >/dev/null 2>&1 || {
-    echo "tailscale ip check failed，try tailscale login"
-    tailscale login --auth-key 2e7af75a7514700fddd51b8f47bf6498190b28f786d5c31c --login-server $login_server --hostname $server_name
-}
-
-echo "tailscale client check successful..."
-tailscale status
-EOF
-    done
-    ;;
-client-tests)
-    servers=()
-    servers+=("root@11.zsc.iirii.com:22")
-    servers+=("root@12.zsc.iirii.com:22")
-    servers+=("root@13.zsc.iirii.com:22")
-    servers+=("root@14.zsc.iirii.com:22")
-    servers+=("root@10.qy.zsc.iirii.com:1022")
-    for server in "${servers[@]}"; do
-        parse_iirii_server $server ssh_user server_host server_port server_target server_path
-
-        server_name="${server_path//./-}"
-#        login_server=https://2.cos.iirii.com:58080
-        login_server=http://0.gw.zsc.iirii.com:58080
-
-        caller ssh -T -o StrictHostKeyChecking=no $ssh_user@$server_target.iirii.com -p $server_port <<EOF
-#!/usr/bin/env bash
-set -e
-
-#tailscale login --auth-key 8da5cbff1dcdacd9765464df4f6de284a4b668e7e9b865f1 --login-server $login_server --hostname $server_name
-tailscale logout
-#tailscale status
-
-EOF
-    done
-    ;;
-client-status)
-    servers=()
-    servers+=("root@11.zsc.iirii.com:22")
-    servers+=("root@12.zsc.iirii.com:22")
-    servers+=("root@13.zsc.iirii.com:22")
-    servers+=("root@14.zsc.iirii.com:22")
-#    servers+=("root@10.qy.zsc.iirii.com:1022")
-    for server in "${servers[@]}"; do
-        parse_iirii_server $server ssh_user server_host server_port server_target server_path
-
-        caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port 'tailscale status'
-    done
-    ;;
-client-logs)
-    servers=()
-    servers+=("root@11.zsc.iirii.com:22")
-    servers+=("root@12.zsc.iirii.com:22")
-    servers+=("root@13.zsc.iirii.com:22")
-    servers+=("root@14.zsc.iirii.com:22")
-    servers+=("root@10.qy.zsc.iirii.com:1022")
-    for server in "${servers[@]}"; do
-        parse_iirii_server $server ssh_user server_host server_port server_target server_path
-
-        #caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port 'journalctl -u snap.tailscale.tailscaled -f'
-        caller ssh -o StrictHostKeyChecking=no $ssh_user@$server_host -p $server_port 'journalctl -u tailscaled -f'
-    done
-    ;;
-remove)
-    caller tailscale down
-    caller tailscale logout
-
-    caller ip link del tailscale0
-    ;;
-uninstall)
-    caller apt uninstall tailscale
-    caller apt-get remove tailscale
-    caller apt-get purge tailscale
-
-    #brew uninstall tailscale
     ;;
 *)
     echo "[参数命令不合法]case: $Case [test]"

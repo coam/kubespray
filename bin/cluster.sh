@@ -56,16 +56,18 @@ taints)
     #caller kubectl taint nodes server-16 node-role.kubernetes.io/control-plane:NoSchedule-
     ;;
 remove)
-    # caller kubectl drain server-18 --ignore-daemonsets --delete-emptydir-data
-    # caller kubectl delete node server-18
+    node_name=server-18
+    node_name=server-qy-10
+    # caller kubectl drain $node_name --ignore-daemonsets --delete-emptydir-data
+    # caller kubectl delete node $node_name
 
-    #caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root remove-node.yml -e node=server-18
-    caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root remove-node.yml -v --extra-vars "node=server-18"
+    #caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root remove-node.yml -e node=$node_name
+    caller ansible-playbook -i inventory/mycluster/hosts.yaml -u root --become --become-user=root remove-node.yml -v --extra-vars "node=$node_name"
 
     # 更新集群证书
     # caller ansible-playbook -i inventory/mycluster/hosts.yaml --become --become-user=root cluster.yml -e "reset_confirmation=yes"
 
-    # 修改 inventory/mycluster/hosts.yaml，删除要移除节点的所有配置 `server-18`
+    # 修改 inventory/mycluster/hosts.yaml，删除要移除节点的所有配置 $node_name
     ;;
 down)
     {
