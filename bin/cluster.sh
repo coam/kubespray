@@ -58,6 +58,7 @@ taints)
 remove)
     node_name=server-18
     node_name=server-qy-10
+    node_name=server-hf-18
     # caller kubectl drain $node_name --ignore-daemonsets --delete-emptydir-data
     # caller kubectl delete node $node_name
 
@@ -71,19 +72,21 @@ remove)
     ;;
 down)
     {
-        caller scp root@11.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.zsc.11
-        caller sed -i "s/127.0.0.1:6443/10.100.0.101:6443/g" ~/.kube/config.zsc.11
-        caller sed -i "s/cluster.local/zsc.cluster.11/g" ~/.kube/config.zsc.11
-        caller sed -i "s/kubernetes-admin/kubernetes-admin-11/g" ~/.kube/config.zsc.11
-        caller cat ~/.kube/config.zsc.11
+        caller scp root@11.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.zsc.11.yaml
+        #caller sed -i "s/127.0.0.1:6443/10.100.0.101:6443/g" ~/.kube/config.zsc.11.yaml
+        caller sed -i "s/127.0.0.1:6443/127.0.0.1:16443/g" ~/.kube/config.zsc.11.yaml
+        caller sed -i "s/cluster.local/zsc.cluster.11/g" ~/.kube/config.zsc.11.yaml
+        caller sed -i "s/kubernetes-admin/kubernetes-admin-11/g" ~/.kube/config.zsc.11.yaml
+        caller cat ~/.kube/config.zsc.11.yaml
     }
 
     {
-        caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.zsc.15
-        caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/config.zsc.15
-        caller sed -i "s/cluster.local/zsc.cluster.15/g" ~/.kube/config.zsc.15
-        caller sed -i "s/kubernetes-admin/kubernetes-admin-15/g" ~/.kube/config.zsc.15
-        caller cat ~/.kube/config.zsc.15
+        caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.zsc.15.yaml
+        #caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/config.zsc.15.yaml
+        caller sed -i "s/127.0.0.1:6443/127.0.0.1:6443/g" ~/.kube/config.zsc.15.yaml
+        caller sed -i "s/cluster.local/zsc.cluster.15/g" ~/.kube/config.zsc.15.yaml
+        caller sed -i "s/kubernetes-admin/kubernetes-admin-15/g" ~/.kube/config.zsc.15.yaml
+        caller cat ~/.kube/config.zsc.15.yaml
     }
     ;;
 info)

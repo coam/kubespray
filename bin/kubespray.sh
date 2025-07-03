@@ -98,6 +98,9 @@ reconfig)
         caller yq -i '.kube_proxy_strict_arp = true' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
     }
 
+    # https://kubernetes.io/zh-cn/docs/reference/command-line-tools-reference/feature-gates/
+    caller yq -i '.kube_feature_gates = ["ResourceHealthStatus=true"]' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
+
     caller yq -i '.metrics_server_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
     caller yq -i '.gateway_api_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
