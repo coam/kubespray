@@ -51,7 +51,7 @@ reconfig)
     # caller rm -rf inventory/mycluster
     # caller cp -rfp inventory/sample inventory/mycluster
     # caller rsync -H -avP --delete --exclude=conf/{cros_headers.conf,log_format.conf,proxy_headers.conf,ssl/,luafile/} --filter='protect conf/ssl' inventory/sample inventory/mycluster
-    caller rsync -H -avP --delete --filter='P hosts.yaml' --filter='P host-1.yaml' --filter='P vars.yaml' inventory/sample/. inventory/mycluster
+    caller rsync -H -avP --delete --filter='P hosts.yaml' --filter='P host-1.yaml' --filter='P host-2.yaml' --filter='P vars.yaml' inventory/sample/. inventory/mycluster
     # python contrib/inventory_builder/inventory.py {{ lookup('ansible.builtin.env', 'DEPLOY_SERVERS') | split(',') | join(' ') }}
 
     # caller sed -i "s/^minimal_node_memory_mb: 1024/minimal_node_memory_mb: 800/g" roles/kubernetes/preinstall/defaults/main.yml
