@@ -73,7 +73,8 @@ reconfig)
 clear)
     # [Kubernetes(四)kubespray方式(4.4)清理代理设置](https://blog.llyweb.com/articles/2022/11/01/1667293708554.html)
 
-    rm -f /etc/systemd/system/containerd.service.d/http-proxy.conf
+    #rm -f /etc/systemd/system/containerd.service.d/http-proxy.conf
+    mv /etc/systemd/system/containerd.service.d/http-proxy.conf /etc/systemd/system/containerd.service.d/http-proxy.conf-bak
     systemctl daemon-reload
     systemctl restart containerd
 

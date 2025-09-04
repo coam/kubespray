@@ -58,7 +58,7 @@ reconfig)
     # caller sed -i "s/^minimal_master_memory_mb: 1500/minimal_master_memory_mb: 800/g" roles/kubernetes/preinstall/defaults/main.yml
 
     # caller sed -i "s/^kube_proxy_mode: ipvs/kube_proxy_mode: iptables/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
-    # caller sed -i "s/^# supplementary_addresses_in_ssl_keys:.*/supplementary_addresses_in_ssl_keys: [ 1.cos.iirii.com ]/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
+    caller sed -i "s/^# supplementary_addresses_in_ssl_keys:.*/supplementary_addresses_in_ssl_keys: [ 0.hf.zsc.iirii.com, 183.162.211.229 ]/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
 
     # caller sed -i "s/^enable_nodelocaldns: true/enable_nodelocaldns: false/g" inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
     caller yq -i '.enable_nodelocaldns = true' inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml
@@ -117,13 +117,15 @@ reconfig)
     caller yq -i '.cert_manager_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
     # caller sed -i "s/^argocd_enabled: false/argocd_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
-    caller yq -i '.argocd_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
+    #caller yq -i '.argocd_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
-    caller sed -i "s/^# argocd_admin_password: \"password\"/argocd_admin_password: \"password\"/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
-    caller yq -i '.argocd_admin_password = "11223344"' inventory/mycluster/group_vars/k8s_cluster/addons.yml
+    #caller sed -i "s/^# argocd_admin_password: \"password\"/argocd_admin_password: \"password\"/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
+    #caller yq -i '.argocd_admin_password = "11223344"' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
     # caller sed -i "s/^helm_enabled: false/helm_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
     caller yq -i '.helm_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
+
+    caller yq -i '.node_feature_discovery_enabled = true' inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
     #  caller sed -i "s/^krew_enabled: false/krew_enabled: true/g" inventory/mycluster/group_vars/k8s_cluster/addons.yml
 
@@ -134,6 +136,9 @@ reconfig)
     # caller sed -i "s/^# https_proxy:.*/https_proxy: \"http:\/\/chess:ceaqaz000@proxy.zsc.iirii.com:7890\"/g" inventory/mycluster/group_vars/all/all.yml
     caller sed -i "s/^# https_proxy:\(.*\)/https_proxy:\1/g" inventory/mycluster/group_vars/all/all.yml
     caller yq -i '.https_proxy = "http://chess:ceaqaz000@proxy.zsc.iirii.com:7890"' inventory/mycluster/group_vars/all/all.yml
+
+    caller sed -i "s/^# containerd_storage_dir:\(.*\)/containerd_storage_dir:\1/g" inventory/mycluster/group_vars/all/containerd.yml
+    caller yq -i '.containerd_storage_dir = "/zscloud/data/containerd"' inventory/mycluster/group_vars/all/containerd.yml
     ;;
 configs)
     servers=()

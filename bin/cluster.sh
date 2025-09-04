@@ -71,7 +71,16 @@ remove)
     # 修改 inventory/mycluster/hosts.yaml，删除要移除节点的所有配置 $node_name
     ;;
 down)
-    {
+    true && {
+        caller scp root@4.hf.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.zsc.hf.4.yaml
+        #caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/config.zsc.hf.4.yaml
+        caller sed -i "s/127.0.0.1:6443/183.162.211.229:6443/g" ~/.kube/config.zsc.hf.4.yaml
+        caller sed -i "s/cluster.local/zsc.cluster.hf.4/g" ~/.kube/config.zsc.hf.4.yaml
+        caller sed -i "s/kubernetes-admin/kubernetes-admin-hf-4/g" ~/.kube/config.zsc.hf.4.yaml
+        #caller cat ~/.kube/config.zsc.hf.4.yaml
+    }
+
+    false && {
         caller scp root@11.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.zsc.11.yaml
         #caller sed -i "s/127.0.0.1:6443/10.100.0.101:6443/g" ~/.kube/config.zsc.11.yaml
         caller sed -i "s/127.0.0.1:6443/127.0.0.1:16443/g" ~/.kube/config.zsc.11.yaml
@@ -80,7 +89,7 @@ down)
         caller cat ~/.kube/config.zsc.11.yaml
     }
 
-    {
+    false && {
         caller scp root@15.zsc.iirii.com:/etc/kubernetes/admin.conf ~/.kube/config.zsc.15.yaml
         #caller sed -i "s/127.0.0.1:6443/10.100.0.105:6443/g" ~/.kube/config.zsc.15.yaml
         caller sed -i "s/127.0.0.1:6443/127.0.0.1:6443/g" ~/.kube/config.zsc.15.yaml
