@@ -54,6 +54,16 @@
         - download_force_cache
         - not download_run_once
 
+    - name: Display all relevant variables
+      debug:
+        msg: |
+          image_pull_command: {{ image_pull_command }}
+          image_pull_command_on_localhost: {{ image_pull_command_on_localhost }}
+          image_reponame: {{ image_reponame }}
+          download_localhost: {{ download_localhost }}
+          download_delegate: {{ download_delegate }}
+          final_command: {{ image_pull_command_on_localhost if download_localhost else image_pull_command }} {{ image_reponame }}
+
     - name: Download_container | Download image if required
       command: "{{ image_pull_command_on_localhost if download_localhost else image_pull_command }} {{ image_reponame }}"
       delegate_to: "{{ download_delegate if download_run_once else inventory_hostname }}"
@@ -68,6 +78,10 @@
       when:
         - pull_required or download_run_once
         - not image_is_cached
+
+    - name: Debug the actual command
+      debug:
+        var: pull_task_result.cmd
 
     - name: Download_container | Save and compress image
       shell: "{{ image_save_command_on_localhost if download_localhost else image_save_command }}"  # noqa command-instead-of-shell - image_save_command_on_localhost contains a pipe, therefore requires shell
