@@ -54,7 +54,7 @@
         - download_force_cache
         - not download_run_once
 
-    - name: Display all relevant variables
+    - name: Display all relevant variables (Download_container | Download image if required)
       debug:
         msg: |
           image_pull_command: {{ image_pull_command }}
