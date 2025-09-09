@@ -54,7 +54,7 @@
         - download_force_cache
         - not download_run_once
 
-    - name: [COAM] Display all relevant variables (Download_container | Download image if required)
+    - name: COAM Display all relevant variables Download_container Download image if required
       debug:
         msg: |
           image_pull_command: {{ image_pull_command }}
@@ -79,7 +79,7 @@
         - pull_required or download_run_once
         - not image_is_cached
 
-    - name: [COAM] Debug the actual command
+    - name: COAM Debug the actual command
       debug:
         var: pull_task_result.cmd
 
